@@ -147,14 +147,13 @@
     <!-- VIEW 3: ACTIVE MATCH / LIVE GAME BOARD -->
     <section id="viewMatchBoard" class="match-board-view hidden">
       <div class="match-top-bar">
-        <div class="match-info">
-          <button class="btn-back-lobby" onclick="exitToLobby()">
-            <i class="bi bi-arrow-left"></i> Back to Lobby
-          </button>
-          <div class="match-meta">
-            <span class="match-game-title" id="boardGameTitle">Game Board</span>
-            <span class="match-id-badge" id="boardMatchId">Match #000</span>
-          </div>
+        <button class="btn-back-lobby" onclick="exitToLobby()">
+          <i class="bi bi-arrow-left"></i> Back to <br />Lobby
+        </button>
+
+        <div class="match-meta">
+          <span class="match-game-title" id="boardGameTitle">Game Board</span>
+          <span class="match-id-text" id="boardMatchId">Match #000</span>
         </div>
 
         <div class="match-player-info" id="boardPlayerStatus">

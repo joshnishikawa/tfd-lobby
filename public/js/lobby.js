@@ -227,7 +227,7 @@ async function refreshTables(targetGameId) {
       if (openMatches.length === 0) {
         list.innerHTML = `
           <div class="empty-tables-hint">
-            <p><i class="bi bi-info-circle"></i> No open tables. Click <strong>Quick Match</strong> or <strong>Create Table</strong> to start!</p>
+            <p><i class="bi bi-info-circle"></i> No open tables. Click <strong>Quick Match</strong> or <strong>Create Game</strong> to start!</p>
           </div>
         `;
         continue;
@@ -235,10 +235,12 @@ async function refreshTables(targetGameId) {
 
       list.innerHTML = openMatches.map(m => {
         const mode = (m.setupData && m.setupData.mode) || '';
-        const game = state.games.find(g => g.id === targetGameId);
+        const game = state.games.find(g => g.id === gameId);
         const modeObj = game && game.modes ? game.modes.find(md => md.id === mode) : null;
         const modeLabel = modeObj ? modeObj.name : (mode ? (mode.charAt(0).toUpperCase() + mode.slice(1)) : '');
         const modeBadgeHtml = modeLabel ? `<span class="table-mode-badge ${escapeHtml(mode)}">${escapeHtml(modeLabel)}</span>` : '';
+        const joinedCount = (m.players || []).filter(p => p.name).length;
+        const totalSeats = (m.players || []).length;
 
         return `
           <div class="table-row">
@@ -247,7 +249,7 @@ async function refreshTables(targetGameId) {
               ${modeBadgeHtml}
               <span class="table-seats-badge"><i class="bi bi-people"></i> ${joinedCount}/${totalSeats}</span>
             </div>
-            <button class="btn-gold btn-sm" onclick="openJoinTableModal('${m.matchID}', ${JSON.stringify(m.players).replace(/"/g, '&quot;')})">
+            <button class="btn-gold btn-sm" onclick="openJoinTableModal('${gameId}', '${m.matchID}', ${JSON.stringify(m.players).replace(/"/g, '&quot;')}, '${escapeHtml(mode)}')">
               <i class="bi bi-door-open"></i> Join Table
             </button>
           </div>
@@ -330,15 +332,20 @@ async function handleQuickMatch(targetGameId) {
   const playerName = state.currentUser ? state.currentUser.username : promptForName();
   if (!playerName) return;
 
-  showToast(`Searching for an open ${game.name} match...`, 'info');
+  const selectedMode = (state.selectedGameMode && state.selectedGameMode[game.id]) || (game.modes && game.modes[0] ? game.modes[0].id : 'normal');
+
+  showToast(`Searching for an open ${game.name} match (${selectedMode})...`, 'info');
 
   try {
     const res = await fetch(`/games/${game.id}`);
     const data = await res.json();
     const matches = data.matches || [];
 
-    // Find match with open seat
+    // Find match with open seat that matches chosen mode
     for (const m of matches) {
+      const matchMode = (m.setupData && m.setupData.mode) || 'normal';
+      if (matchMode !== selectedMode) continue;
+
       const openSlot = (m.players || []).findIndex(p => !p.name);
       if (openSlot !== -1 && !m.gameover) {
         // Join this match!
@@ -359,15 +366,14 @@ async function handleQuickMatch(targetGameId) {
             playerID: String(openSlot),
             credentials: joinData.playerCredentials,
             playerName,
-            mode: m.setupData ? m.setupData.mode : 'normal'
+            mode: matchMode
           });
           return;
         }
       }
     }
 
-    // No open table found -> Create one with selected mode!
-    const selectedMode = (state.selectedGameMode && state.selectedGameMode[game.id]) || 'normal';
+    // No open table found with matching mode -> Create one!
     const createRes = await fetch(`/games/${game.id}/create`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -444,17 +450,20 @@ async function submitCreateTable() {
   const gameId = el('createGameSelect').value;
   const numPlayers = parseInt(el('createNumPlayers').value, 10) || 2;
   const playerName = el('createPlayerName').value.trim() || (state.currentUser ? state.currentUser.username : 'Player 1');
+  const game = state.games.find(g => g.id === gameId);
+  const selectedMode = (state.selectedGameMode && state.selectedGameMode[gameId]) || (game && game.modes && game.modes[0] ? game.modes[0].id : 'normal');
 
   try {
     const createRes = await fetch(`/games/${gameId}/create`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ numPlayers })
+      body: JSON.stringify({ numPlayers, setupData: { mode: selectedMode } })
     });
     if (!createRes.ok) throw new Error('Could not create table');
     const createData = await createRes.json();
+    const matchID = createData.matchID;
 
-    const joinRes = await fetch(`/games/${gameId}/${createData.matchID}/join`, {
+    const joinRes = await fetch(`/games/${gameId}/${matchID}/join`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -467,10 +476,11 @@ async function submitCreateTable() {
     closeCreateTableModal();
     enterMatch({
       gameName: gameId,
-      matchID: createData.matchID,
+      matchID,
       playerID: '0',
       credentials: joinData.playerCredentials,
-      playerName
+      playerName,
+      mode: selectedMode
     });
   } catch (err) {
     showToast('Failed to create table: ' + err.message, 'error');
@@ -478,10 +488,14 @@ async function submitCreateTable() {
 }
 
 // Join Table Modal
+let currentModalGameId = null;
 let currentModalMatchID = null;
+let currentModalMode = null;
 
-function openJoinTableModal(matchID, players) {
+function openJoinTableModal(gameId, matchID, players, mode) {
+  currentModalGameId = gameId;
   currentModalMatchID = matchID;
+  currentModalMode = mode || 'normal';
   const modal = el('joinTableModal');
   el('joinTableInfo').textContent = `Joining Table #${matchID.substring(0, 8)}`;
 
@@ -501,17 +515,22 @@ function openJoinTableModal(matchID, players) {
 }
 
 function closeJoinTableModal() {
+  currentModalGameId = null;
+  currentModalMatchID = null;
+  currentModalMode = null;
   el('joinTableModal').classList.add('hidden');
 }
 
 async function submitJoinTable() {
   if (!currentModalMatchID) return;
-  const gameId = state.selectedGameId;
+  const matchID = currentModalMatchID;
+  const gameId = currentModalGameId || state.selectedGameId;
+  const mode = currentModalMode || 'normal';
   const playerID = el('joinSeatSelect').value;
   const playerName = el('joinPlayerName').value.trim() || (state.currentUser ? state.currentUser.username : `Player ${parseInt(playerID, 10) + 1}`);
 
   try {
-    const res = await fetch(`/games/${gameId}/${currentModalMatchID}/join`, {
+    const res = await fetch(`/games/${gameId}/${matchID}/join`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ playerID, playerName })
@@ -522,10 +541,11 @@ async function submitJoinTable() {
     closeJoinTableModal();
     enterMatch({
       gameName: gameId,
-      matchID: currentModalMatchID,
+      matchID,
       playerID,
       credentials: data.playerCredentials,
-      playerName
+      playerName,
+      mode
     });
   } catch (err) {
     showToast('Error joining table: ' + err.message, 'error');
@@ -897,8 +917,9 @@ function enterMatch(matchConfig) {
   const game = state.games.find(g => g.id === matchConfig.gameName);
   const titleEl = el('boardGameTitle');
   const idEl = el('boardMatchId');
+  const matchIdStr = matchConfig.matchID || matchConfig.matchId || '';
   if (titleEl) titleEl.textContent = game ? game.name : matchConfig.gameName;
-  if (idEl) idEl.textContent = `Match #${(matchConfig.matchID || '').substring(0, 8)}`;
+  if (idEl) idEl.textContent = `Match #${matchIdStr ? matchIdStr.substring(0, 8) : '000'}`;
 
   checkActiveMatchBanner();
   mountGameClient(matchConfig);
@@ -931,7 +952,8 @@ function checkActiveMatchBanner() {
   if (activeMatch && !document.body.classList.contains('in-game')) {
     const game = state.games.find(g => g.id === activeMatch.gameName);
     const gameTitle = game ? game.name : activeMatch.gameName;
-    const matchShortId = activeMatch.matchID ? activeMatch.matchID.substring(0, 8) : '000';
+    const matchIdVal = activeMatch.matchID || activeMatch.matchId || '';
+    const matchShortId = matchIdVal ? matchIdVal.substring(0, 8) : '000';
 
     banner.innerHTML = `
       <div class="active-match-info">

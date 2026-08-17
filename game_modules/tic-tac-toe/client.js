@@ -58,10 +58,15 @@ function mountTicTacToeClient(container, config) {
     socket.on('sync', (mId, syncData) => {
       if (mId === matchID && syncData && syncData.state) {
         currentGameState = syncData.state;
-        if (syncData.matchData) {
-          matchData = syncData.matchData;
-        }
+        matchData = syncData.filteredMetadata || syncData.matchData || matchData;
         renderBoardState(currentGameState, matchData);
+      }
+    });
+
+    socket.on('matchData', (mId, filteredMetadata) => {
+      if (mId === matchID && filteredMetadata) {
+        matchData = filteredMetadata;
+        if (currentGameState) renderBoardState(currentGameState, matchData);
       }
     });
 
@@ -84,7 +89,8 @@ function mountTicTacToeClient(container, config) {
   // Poll for opponent joining match
   let matchDataPollTimer = setInterval(async () => {
     if (!currentGameState) return;
-    const joined = (matchData && matchData.players || []).filter(p => p && p.name);
+    const playerList = Array.isArray(matchData) ? matchData : (matchData && matchData.players ? (Array.isArray(matchData.players) ? matchData.players : Object.values(matchData.players)) : []);
+    const joined = playerList.filter(p => p && p.name);
     if (joined.length >= 2) {
       clearInterval(matchDataPollTimer);
       return;
@@ -93,8 +99,8 @@ function mountTicTacToeClient(container, config) {
       const res = await fetch(`/games/${gameName}/${matchID}`);
       if (res.ok) {
         const mRes = await res.json();
-        if (mRes.matchData) {
-          matchData = mRes.matchData;
+        if (mRes) {
+          matchData = mRes.players || mRes.matchData || mRes;
           renderBoardState(currentGameState, matchData);
         }
       }
@@ -145,7 +151,8 @@ function mountTicTacToeClient(container, config) {
     const gridMount = document.getElementById('tttGridMount');
     if (!gridMount) return;
 
-    const joinedPlayers = (mData && mData.players || []).filter(p => p && p.name);
+    const playerList = Array.isArray(mData) ? mData : (mData && mData.players ? (Array.isArray(mData.players) ? mData.players : Object.values(mData.players)) : []);
+    const joinedPlayers = playerList.filter(p => p && p.name);
     const isWaitingForOpponent = mData && joinedPlayers.length < 2 && !ctx.gameover;
     const isMyTurn = String(ctx.currentPlayer) === String(playerID) && !ctx.gameover;
 
@@ -207,7 +214,7 @@ function mountTicTacToeClient(container, config) {
     const banner = document.getElementById('tttStatusBanner');
     if (!banner) return;
 
-    const mySymbol = String(playerID) === '0' ? 'X (Player 1)' : 'O (Player 2)';
+    const mySymbol = String(playerID) === '0' ? 'X' : 'O';
 
     if (ctx.gameover) {
       if (typeof window.clearActiveMatchState === 'function') window.clearActiveMatchState();

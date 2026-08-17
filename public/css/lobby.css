@@ -1141,9 +1141,9 @@ body.in-game .hero-header {
 }
 
 .match-top-bar {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
   width: 100%;
   max-width: 900px;
   margin: 0 auto 0.75rem;
@@ -1151,37 +1151,35 @@ body.in-game .hero-header {
   border-bottom: 1px solid rgba(212, 175, 55, 0.22);
 }
 
-.match-info {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
 .btn-back-lobby {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--navy-border);
+  justify-self: start;
+  background: none;
+  border: none;
   color: var(--text-muted);
-  padding: 0.38rem 0.85rem;
-  border-radius: var(--radius-sm);
-  font-size: 0.82rem;
+  padding: 0;
+  font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: 0.38rem;
+  line-height: 1.2;
+  text-align: left;
   transition: var(--transition);
 }
 
 .btn-back-lobby:hover {
-  background: rgba(212, 175, 55, 0.15);
+  background: none;
   color: var(--gold-light);
-  border-color: var(--gold-primary);
+  border-color: transparent;
 }
 
 .match-meta {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 0.75rem;
+  text-align: center;
+  gap: 0.15rem;
   margin-top: 0;
 }
 
@@ -1190,16 +1188,21 @@ body.in-game .hero-header {
   font-size: 1.25rem;
   font-weight: 700;
   color: var(--gold-light);
+  line-height: 1.2;
 }
 
+.match-id-text,
 .match-id-badge {
   font-family: monospace;
   font-size: 0.8rem;
-  background: rgba(0, 0, 0, 0.4);
-  padding: 0.2rem 0.55rem;
-  border-radius: 4px;
-  border: 1px solid rgba(212, 175, 55, 0.2);
   color: var(--text-muted);
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+.match-player-info {
+  justify-self: end;
 }
 
 .board-mount-container {

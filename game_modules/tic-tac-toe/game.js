@@ -32,8 +32,9 @@ function isSubBoardDraw(cells, offset = 0) {
 
 const TicTacToe = {
   name: 'tic-tac-toe',
-  setup: (ctx, setupData) => {
-    const mode = setupData && setupData.mode ? setupData.mode : 'normal';
+  setup: (pluginsOrCtx, setupData) => {
+    const data = setupData || (pluginsOrCtx && pluginsOrCtx.setupData) || pluginsOrCtx || {};
+    const mode = (data && data.mode) ? data.mode : 'normal';
 
     if (mode === 'ultimate') {
       return {

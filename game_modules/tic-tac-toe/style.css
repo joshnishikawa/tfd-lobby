@@ -1,0 +1,228 @@
+/* Tic Tac Toe Board Styling */
+.ttt-board-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  padding: 0.25rem 0;
+}
+
+.ttt-status-banner {
+  background: rgba(16, 30, 48, 0.85);
+  border: 1px solid var(--navy-border-bright, rgba(56, 189, 248, 0.3));
+  padding: 0.6rem 1.35rem;
+  border-radius: 9999px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin-bottom: 1.25rem;
+  color: var(--gold-light, #fef08a);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(10px);
+}
+
+.ttt-grid {
+  display: grid;
+  grid-template-columns: repeat(3, clamp(80px, 16vw, 115px));
+  grid-template-rows: repeat(3, clamp(80px, 16vw, 115px));
+  gap: 12px;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid var(--navy-border-bright, rgba(56, 189, 248, 0.3));
+  box-shadow: inset 0 0 25px rgba(0, 0, 0, 0.7), 0 12px 40px rgba(0, 0, 0, 0.7);
+}
+
+.ttt-cell {
+  background: rgba(16, 30, 48, 0.95);
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  border-radius: 8px;
+  font-family: 'Cinzel', serif;
+  font-size: 2.5rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ttt-cell:hover:not(.disabled) {
+  background: rgba(212, 175, 55, 0.15);
+  border-color: #d4af37;
+  transform: scale(1.03);
+}
+
+.ttt-cell.disabled {
+  cursor: not-allowed;
+}
+
+.ttt-cell.x-mark {
+  color: #38bdf8;
+  text-shadow: 0 0 12px rgba(56, 189, 248, 0.5);
+}
+
+.ttt-cell.o-mark {
+  color: #f6e05e;
+  text-shadow: 0 0 12px rgba(246, 224, 94, 0.5);
+}
+
+#tttGridMount {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  max-width: 600px;
+}
+
+/* Ultimate Tic Tac Toe Board Styling */
+.uttt-main-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  aspect-ratio: 1 / 1;
+  width: min(92vw, 540px);
+  height: min(92vw, 540px);
+  min-width: min(92vw, 300px);
+  min-height: min(92vw, 300px);
+  gap: clamp(8px, 1.8vw, 14px);
+  background: rgba(4, 9, 15, 0.95);
+  padding: clamp(8px, 2vw, 14px);
+  border-radius: 12px;
+  border: 2px solid var(--navy-border-bright, rgba(56, 189, 248, 0.3));
+  box-shadow: inset 0 0 35px rgba(0, 0, 0, 0.9), 0 12px 40px rgba(0, 0, 0, 0.8);
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.uttt-sub-board {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  aspect-ratio: 1 / 1;
+  width: 100%;
+  height: 100%;
+  gap: clamp(3px, 0.8vw, 6px);
+  background: rgba(16, 30, 48, 0.95);
+  border: 1.5px solid rgba(212, 175, 55, 0.35);
+  border-radius: 6px;
+  padding: clamp(4px, 1vw, 8px);
+  position: relative;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-sizing: border-box;
+}
+
+.uttt-sub-board.active-target {
+  border-color: #d4af37 !important;
+  border-width: 2px !important;
+  box-shadow: 0 0 20px rgba(212, 175, 55, 0.55) !important;
+  background: rgba(212, 175, 55, 0.15) !important;
+}
+
+.uttt-sub-board.won-x::after,
+.uttt-sub-board.won-o::after,
+.uttt-sub-board.won-draw::after {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Cinzel', serif;
+  font-size: clamp(2.5rem, 9vw, 4rem);
+  font-weight: 900;
+  border-radius: 6px;
+  backdrop-filter: blur(4px);
+  z-index: 10;
+}
+
+.uttt-sub-board.won-x::after {
+  content: 'X';
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.3);
+  text-shadow: 0 0 20px rgba(56, 189, 248, 0.75);
+}
+
+.uttt-sub-board.won-o::after {
+  content: 'O';
+  color: #f6e05e;
+  background: rgba(246, 224, 94, 0.3);
+  text-shadow: 0 0 20px rgba(246, 224, 94, 0.75);
+}
+
+.uttt-sub-board.won-draw::after {
+  content: '-';
+  color: #94a3b8;
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.uttt-cell {
+  aspect-ratio: 1 / 1;
+  width: 100%;
+  height: 100%;
+  background: rgba(11, 22, 35, 0.95);
+  border: 1px solid rgba(212, 175, 55, 0.4);
+  border-radius: 4px;
+  font-family: 'Cinzel', serif;
+  font-size: clamp(1rem, 3.8vw, 1.6rem);
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+  box-sizing: border-box;
+}
+
+.uttt-cell:hover:not(.disabled) {
+  background: rgba(212, 175, 55, 0.4);
+  border-color: #fef08a;
+  transform: scale(1.08);
+  box-shadow: 0 0 12px rgba(212, 175, 55, 0.6);
+  z-index: 5;
+}
+
+.uttt-cell.x-mark {
+  color: #38bdf8;
+  text-shadow: 0 0 12px rgba(56, 189, 248, 0.6);
+}
+
+.uttt-cell.o-mark {
+  color: #f6e05e;
+  text-shadow: 0 0 12px rgba(246, 224, 94, 0.6);
+}
+
+.uttt-cell.disabled {
+  cursor: not-allowed;
+  opacity: 0.85;
+}
+
+.ttt-game-over-panel {
+  margin-top: 1.5rem;
+  text-align: center;
+}
+
+@media (max-width: 768px) {
+  .ttt-grid {
+    grid-template-columns: repeat(3, clamp(65px, 24vw, 95px));
+    grid-template-rows: repeat(3, clamp(65px, 24vw, 95px));
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .ttt-cell {
+    font-size: clamp(1.8rem, 8vw, 2.5rem);
+  }
+
+  .ttt-status-banner {
+    padding: 0.6rem 1rem;
+    font-size: 0.95rem;
+    margin-bottom: 1.25rem;
+  }
+}

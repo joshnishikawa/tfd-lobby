@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Game Lobby - The Flying Dutchmen</title>
+  <meta name="description" content="Play real-time multiplayer tabletop games with The Flying Dutchmen community.">
+  
+  <!-- Favicons -->
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <link rel="icon" type="image/png" href="favicon.png">
+
+  <!-- Google Fonts & Bootstrap Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  
+  <!-- Boardgame.io & Socket.io Client CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/boardgame.io@0.50.2/dist/boardgameio.min.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+
+  <!-- Shared TFD Navigation Styles & Lobby Styles -->
+  <link rel="stylesheet" href="/css/tfd-nav.css">
+  <link rel="stylesheet" href="/css/lobby.css">
+</head>
+<body>
+  <!-- Shared Top Navigation Bar (Managed by tfd-navbar.js) -->
+  <header id="tfd-navbar" class="tfd-navbar" data-active="lobby"></header>
+
+  <!-- Main Container -->
+  <main class="main-wrapper">
+    <!-- Flow Switcher -->
+    <section class="hero-header">
+      <!-- Flow Switcher Tabs -->
+      <div class="flow-tabs">
+        <button class="flow-tab-btn active" id="tabGameFirst" onclick="switchFlow('game')">
+          <i class="bi bi-dice-5-fill"></i>
+          <span>Browse Games & Tables</span>
+        </button>
+        <button class="flow-tab-btn" id="tabGroupFirst" onclick="switchFlow('group')">
+          <i class="bi bi-people-fill"></i>
+          <span>Party Lounge</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Global Alert / Notification Toast -->
+    <div id="toastNotification" class="toast-notification hidden"></div>
+
+    <!-- Active Match Resume Banner -->
+    <div id="activeMatchBanner" class="active-match-banner hidden"></div>
+
+    <!-- VIEW 1: GAME-FIRST FLOW (CONSOLIDATED CARDS) -->
+    <section id="viewGameFirst" class="flow-view active">
+      <div class="games-grid" id="gamesGrid">
+        <!-- Dynamically injected consolidated game cards -->
+      </div>
+    </section>
+
+    <!-- VIEW 2: GROUP-FIRST FLOW (PARTY LOUNGE) -->
+    <section id="viewGroupFirst" class="flow-view">
+      <!-- Party Entry Area (shown when not in a party) -->
+      <div id="partyEntryArea" class="party-entry-panel">
+        <div class="party-card create-party-card">
+          <div class="party-card-icon"><i class="bi bi-plus-square-fill"></i></div>
+          <h3>Host a New Party</h3>
+          <p>Create a private room with a shareable code. Gather your friends first, pick any game, and launch together.</p>
+          <button class="btn-primary w-100" onclick="handleCreateGroup()">
+            <i class="bi bi-plus-circle-fill"></i> Create Party
+          </button>
+        </div>
+
+        <div class="party-card join-party-card">
+          <div class="party-card-icon"><i class="bi bi-door-open-fill"></i></div>
+          <h3>Join Existing Party</h3>
+          <p>Have a party code from a friend? Enter it below to step right into their lounge room.</p>
+          <div class="join-input-group">
+            <input type="text" id="inputPartyCode" placeholder="e.g. FD-1234" maxlength="10" autocomplete="off" />
+            <button class="btn-gold" onclick="handleJoinGroup()">
+              <i class="bi bi-arrow-right-circle-fill"></i> Join
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Active Party Lounge Room (shown when inside a party) -->
+      <div id="activePartyLounge" class="party-lounge-panel hidden">
+        <div class="lounge-header">
+          <div class="lounge-title-col">
+            <span class="lounge-label">PARTY LOUNGE</span>
+            <div class="room-code-badge">
+              <span id="loungeRoomCode">FD-0000</span>
+              <button class="btn-copy" onclick="copyPartyCode()" title="Copy Code">
+                <i class="bi bi-clipboard"></i>
+              </button>
+            </div>
+          </div>
+          <button class="btn-leave-party" onclick="handleLeaveGroup()">
+            <i class="bi bi-box-arrow-left"></i> Leave Party
+          </button>
+        </div>
+
+        <div class="lounge-body-grid">
+          <!-- Members Column -->
+          <div class="lounge-members-card">
+            <h4><i class="bi bi-people-fill text-gold"></i> Party Members (<span id="loungeMemberCount">1</span>)</h4>
+            <div class="members-roster" id="loungeMembersList">
+              <!-- Dynamically populated -->
+            </div>
+            <div class="ready-action-row">
+              <button class="btn-ready" id="btnToggleReady" onclick="handleToggleReady()">
+                <i class="bi bi-check-circle"></i> Ready Up
+              </button>
+            </div>
+          </div>
+
+          <!-- Game Selection & Launch Column -->
+          <div class="lounge-game-card">
+            <h4><i class="bi bi-dice-5 text-gold"></i> Selected Game</h4>
+            <div class="host-game-selector" id="hostGameSelectorArea">
+              <label for="selectPartyGame">Game to Play:</label>
+              <select id="selectPartyGame" onchange="handleHostGameChange(this.value)">
+                <!-- Dynamically populated -->
+              </select>
+            </div>
+
+            <div class="selected-game-preview" id="partyGamePreview">
+              <h5 id="partyGameName">Loading games...</h5>
+              <p id="partyGameDesc">Please wait while game modules load.</p>
+              <div class="game-requirements" id="partyGameReqs">
+                <i class="bi bi-info-circle"></i> Selecting game...
+              </div>
+            </div>
+
+            <div class="launch-action-area">
+              <button class="btn-launch-game" id="btnLaunchPartyGame" onclick="handleLaunchPartyGame()">
+                <i class="bi bi-play-circle-fill"></i> Launch Game
+              </button>
+              <p class="launch-hint" id="launchHintText">Waiting for all players to be ready...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 3: ACTIVE MATCH / LIVE GAME BOARD -->
+    <section id="viewMatchBoard" class="match-board-view hidden">
+      <div class="match-top-bar">
+        <div class="match-info">
+          <button class="btn-back-lobby" onclick="exitToLobby()">
+            <i class="bi bi-arrow-left"></i> Back to Lobby
+          </button>
+          <div class="match-meta">
+            <span class="match-game-title" id="boardGameTitle">Game Board</span>
+            <span class="match-id-badge" id="boardMatchId">Match #000</span>
+          </div>
+        </div>
+
+        <div class="match-player-info" id="boardPlayerStatus">
+          <!-- Player identity and turn status -->
+        </div>
+      </div>
+
+      <!-- Embedded Board Container -->
+      <div class="board-mount-container" id="boardMountContainer">
+        <!-- Interactive Game Board Renders Here -->
+      </div>
+    </section>
+  </main>
+
+  <!-- Create Table Modal -->
+  <div class="modal-overlay hidden" id="createTableModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3><i class="bi bi-plus-circle text-gold"></i> Create Game Table</h3>
+        <button class="modal-close" onclick="closeCreateTableModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="createGameSelect">Game:</label>
+          <select id="createGameSelect" class="form-control" onchange="updateCreateModalPlayerOptions()">
+            <!-- Populated dynamically -->
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="createNumPlayers">Player Count:</label>
+          <select id="createNumPlayers" class="form-control">
+            <option value="2">2 Players</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="createPlayerName">Your Name:</label>
+          <input type="text" id="createPlayerName" class="form-control" placeholder="Enter your display name" maxlength="30" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeCreateTableModal()">Cancel</button>
+        <button class="btn-primary" onclick="submitCreateTable()">
+          <i class="bi bi-check-lg"></i> Create & Join
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Join Table Modal -->
+  <div class="modal-overlay hidden" id="joinTableModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3><i class="bi bi-door-open text-gold"></i> Join Game Table</h3>
+        <button class="modal-close" onclick="closeJoinTableModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p id="joinTableInfo">Joining table...</p>
+        <div class="form-group">
+          <label for="joinPlayerName">Your Name:</label>
+          <input type="text" id="joinPlayerName" class="form-control" placeholder="Enter your display name" maxlength="30" />
+        </div>
+        <div class="form-group">
+          <label for="joinSeatSelect">Select Seat / Player Slot:</label>
+          <select id="joinSeatSelect" class="form-control">
+            <!-- Populated dynamically with available seats -->
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeJoinTableModal()">Cancel</button>
+        <button class="btn-primary" onclick="submitJoinTable()">
+          <i class="bi bi-play-fill"></i> Join Table
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="/js/tfd-navbar.js"></script>
+  <script src="/js/lobby.js"></script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+{
+  "id": "tic-tac-toe",
+  "name": "Tic Tac Toe",
+  "description": "",
+  "playerCounts": [2],
+  "version": "1.0.0",
+  "status": "active",
+  "author": "The Flying Dutchmen",
+  "tags": [
+    "classic",
+    "strategy",
+    "quick"
+  ],
+  "modes": [
+    {
+      "id": "normal",
+      "name": "Normal",
+      "description": "3x3 grid. Get 3 symbols in a row and you win.",
+      "isDefault": true
+    },
+    {
+      "id": "ultimate",
+      "name": "Ultimate",
+      "description": "9 nested 3x3 grids! Win small boards to control cells on the main grid."
+    }
+  ]
+}

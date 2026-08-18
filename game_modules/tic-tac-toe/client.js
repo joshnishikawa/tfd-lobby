@@ -14,7 +14,14 @@ function mountTicTacToeClient(container, config) {
 
   let currentGameState = null;
   let matchData = null;
-  let socket = null;
+  if (window.__currentTTTSocket) {
+    try { window.__currentTTTSocket.disconnect(); } catch (e) {}
+    window.__currentTTTSocket = null;
+  }
+  if (window.__currentTTTPoll) {
+    clearInterval(window.__currentTTTPoll);
+    window.__currentTTTPoll = null;
+  }
 
   const isUltimate = (config && config.mode === 'ultimate') || (config && config.setupData && config.setupData.mode === 'ultimate');
 
@@ -50,6 +57,7 @@ function mountTicTacToeClient(container, config) {
   if (typeof io !== 'undefined') {
     const nspUrl = `${window.location.origin}/${gameName}`;
     socket = io(nspUrl);
+    window.__currentTTTSocket = socket;
 
     socket.on('connect', () => {
       socket.emit('sync', matchID, String(playerID), credentials);
@@ -93,6 +101,7 @@ function mountTicTacToeClient(container, config) {
     const joined = playerList.filter(p => p && p.name);
     if (joined.length >= 2) {
       clearInterval(matchDataPollTimer);
+      window.__currentTTTPoll = null;
       return;
     }
     try {
@@ -106,6 +115,7 @@ function mountTicTacToeClient(container, config) {
       }
     } catch (e) {}
   }, 2500);
+  window.__currentTTTPoll = matchDataPollTimer;
 
   // Cell click handler (Normal & Ultimate)
   window.handleCellClick = (cellId) => {
@@ -217,19 +227,25 @@ function mountTicTacToeClient(container, config) {
     const mySymbol = String(playerID) === '0' ? 'X' : 'O';
 
     if (ctx.gameover) {
+      if (typeof window.setMatchGameOver === 'function') window.setMatchGameOver(true);
       if (typeof window.clearActiveMatchState === 'function') window.clearActiveMatchState();
 
+      let resultHtml = '';
       if (ctx.gameover.winner !== undefined && ctx.gameover.winner !== null) {
         const isMeWinner = String(ctx.gameover.winner) === String(playerID);
-        banner.innerHTML = isMeWinner ? 
+        resultHtml = isMeWinner ? 
           `<i class="bi bi-trophy-fill" style="color: #f6e05e"></i> Victory! You Won!` :
           `<i class="bi bi-x-circle-fill" style="color: #ef4444"></i> Game Over. Player ${parseInt(ctx.gameover.winner, 10) + 1} won.`;
       } else {
-        banner.innerHTML = `<i class="bi bi-dash-circle-fill"></i> Draw Game!`;
+        resultHtml = `<i class="bi bi-dash-circle-fill"></i> Draw Game!`;
       }
+
+      banner.innerHTML = resultHtml;
     } else if (isWaitingForOpponent) {
+      if (typeof window.setMatchGameOver === 'function') window.setMatchGameOver(false);
       banner.innerHTML = `<i class="bi bi-person-plus-fill text-gold"></i> Waiting for opponent to join match... (1/2 Players)`;
     } else {
+      if (typeof window.setMatchGameOver === 'function') window.setMatchGameOver(false);
       const turnText = isMyTurn ?
         `<i class="bi bi-lightning-fill text-gold"></i> Your Turn! (You are ${mySymbol})` :
         `<i class="bi bi-hourglass-split"></i> Opponent's Turn (You are ${mySymbol})`;

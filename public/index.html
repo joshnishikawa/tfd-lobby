@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Game Lobby - The Flying Dutchmen</title>
   <meta name="description" content="Play real-time multiplayer tabletop games with The Flying Dutchmen community.">
   
@@ -36,7 +36,7 @@
       <div class="flow-tabs">
         <button class="flow-tab-btn active" id="tabGameFirst" onclick="switchFlow('game')">
           <i class="bi bi-dice-5-fill"></i>
-          <span>Browse Games & Tables</span>
+          <span>Quick Match</span>
         </button>
         <button class="flow-tab-btn" id="tabGroupFirst" onclick="switchFlow('group')">
           <i class="bi bi-people-fill"></i>
@@ -62,26 +62,40 @@
     <section id="viewGroupFirst" class="flow-view">
       <!-- Party Entry Area (shown when not in a party) -->
       <div id="partyEntryArea" class="party-entry-panel">
-        <div class="party-card create-party-card">
-          <div class="party-card-icon"><i class="bi bi-plus-square-fill"></i></div>
-          <h3>Host a New Party</h3>
-          <p>Create a private room with a shareable code. Gather your friends first, pick any game, and launch together.</p>
-          <button class="btn-primary w-100" onclick="handleCreateGroup()">
-            <i class="bi bi-plus-circle-fill"></i> Create Party
-          </button>
-        </div>
-
         <div class="party-card join-party-card">
-          <div class="party-card-icon"><i class="bi bi-door-open-fill"></i></div>
           <h3>Join Existing Party</h3>
           <p>Have a party code from a friend? Enter it below to step right into their lounge room.</p>
-          <div class="join-input-group">
-            <input type="text" id="inputPartyCode" placeholder="e.g. FD-1234" maxlength="10" autocomplete="off" />
-            <button class="btn-gold" onclick="handleJoinGroup()">
-              <i class="bi bi-arrow-right-circle-fill"></i> Join
+          <div class="party-form">
+            <div class="form-group">
+              <label for="joinPartyMemberName">Your Name:</label>
+              <input type="text" id="joinPartyMemberName" class="form-control" placeholder="Enter your display name" maxlength="30" autocomplete="nickname" />
+            </div>
+            <div class="form-group">
+              <label for="inputPartyCode">Party Code:</label>
+              <div class="join-input-group">
+                <input type="text" id="inputPartyCode" placeholder="e.g. FD-1234" maxlength="10" autocomplete="off" />
+                <button class="btn-gold" onclick="handleJoinGroup()">
+                  <i class="bi bi-arrow-right-circle-fill"></i> Join
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="party-card create-party-card">
+          <h3>Host a New Party</h3>
+          <p>Create a private room with a shareable code. Gather your friends first, pick any game, and launch together.</p>
+          <div class="party-form">
+            <div class="form-group">
+              <label for="createPartyHostName">Your Name:</label>
+              <input type="text" id="createPartyHostName" class="form-control" placeholder="Enter your display name" maxlength="30" autocomplete="nickname" />
+            </div>
+            <button class="btn-primary w-100" onclick="handleCreateGroup()">
+              <i class="bi bi-plus-circle-fill"></i> Create Party
             </button>
           </div>
         </div>
+
       </div>
 
       <!-- Active Party Lounge Room (shown when inside a party) -->
@@ -147,13 +161,17 @@
     <!-- VIEW 3: ACTIVE MATCH / LIVE GAME BOARD -->
     <section id="viewMatchBoard" class="match-board-view hidden">
       <div class="match-top-bar">
-        <button class="btn-back-lobby" onclick="exitToLobby()">
-          <i class="bi bi-arrow-left"></i> Back to <br />Lobby
-        </button>
+        <div class="match-nav-actions">
+          <button class="btn-pill btn-to-lobby" onclick="exitToLobby()">
+            <i class="bi bi-arrow-left"></i> To Lobby
+          </button>
+          <button class="btn-pill btn-play-again hidden" id="btnPlayAgain" onclick="handlePlayAgain()">
+            <i class="bi bi-arrow-repeat"></i> <span id="playAgainLabel">Play Again</span>
+          </button>
+        </div>
 
         <div class="match-meta">
           <span class="match-game-title" id="boardGameTitle">Game Board</span>
-          <span class="match-id-text" id="boardMatchId">Match #000</span>
         </div>
 
         <div class="match-player-info" id="boardPlayerStatus">
@@ -164,6 +182,11 @@
       <!-- Embedded Board Container -->
       <div class="board-mount-container" id="boardMountContainer">
         <!-- Interactive Game Board Renders Here -->
+      </div>
+
+      <!-- Match Footer Info -->
+      <div class="match-footer-bar">
+        <span class="match-id-text" id="boardMatchId">Match #000</span>
       </div>
     </section>
   </main>

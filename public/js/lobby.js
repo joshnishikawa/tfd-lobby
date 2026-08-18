@@ -26,6 +26,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadGamesCatalog();
   startTablesPolling();
   checkActiveMatchBanner();
+  setupPartyInputs();
 });
 
 // Listen to SSO auth updates from shared tfd-navbar
@@ -35,8 +36,42 @@ window.addEventListener('tfd-auth-change', (e) => {
   if (user) {
     if (el('createPlayerName')) el('createPlayerName').value = user.username;
     if (el('joinPlayerName')) el('joinPlayerName').value = user.username;
+    if (el('createPartyHostName')) el('createPartyHostName').value = user.username;
+    if (el('joinPartyMemberName')) el('joinPartyMemberName').value = user.username;
   }
 });
+
+function setupPartyInputs() {
+  const createHostInput = el('createPartyHostName');
+  const joinMemberInput = el('joinPartyMemberName');
+  const partyCodeInput = el('inputPartyCode');
+
+  if (createHostInput) {
+    createHostInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') handleCreateGroup();
+    });
+    createHostInput.addEventListener('input', () => {
+      if (joinMemberInput && !joinMemberInput.dataset.touched) {
+        joinMemberInput.value = createHostInput.value;
+      }
+    });
+  }
+
+  if (joinMemberInput) {
+    joinMemberInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') handleJoinGroup();
+    });
+    joinMemberInput.addEventListener('input', () => {
+      joinMemberInput.dataset.touched = 'true';
+    });
+  }
+
+  if (partyCodeInput) {
+    partyCodeInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') handleJoinGroup();
+    });
+  }
+}
 
 // Flow Switching (Game-First vs Group-First)
 function switchFlow(flow) {
@@ -93,6 +128,7 @@ async function loadGamesCatalog() {
 }
 
 state.selectedGameMode = state.selectedGameMode || {};
+state.selectedPlayerCount = state.selectedPlayerCount || {};
 
 function selectGameMode(gameId, modeId) {
   state.selectedGameMode[gameId] = modeId;
@@ -110,6 +146,10 @@ function selectGameMode(gameId, modeId) {
   });
 }
 
+function selectPlayerCount(gameId, count) {
+  state.selectedPlayerCount[gameId] = count;
+}
+
 function renderGamesCatalog() {
   const grid = el('gamesGrid');
   if (!grid) return;
@@ -122,12 +162,13 @@ function renderGamesCatalog() {
   grid.innerHTML = state.games.map(game => {
     let playerCounts = game.playerCounts || (game.minPlayers ? [game.minPlayers] : [2]);
     if (!playerCounts || playerCounts.length === 0) playerCounts = [2];
+    const selectedPlayerCount = state.selectedPlayerCount[game.id] || playerCounts[0];
 
     const playerSelectHtml = playerCounts.length > 1 ? `
       <div class="player-select-wrapper">
         <label for="playerCountSelect_${game.id}"><i class="bi bi-people"></i></label>
-        <select class="player-count-select" id="playerCountSelect_${game.id}">
-          ${playerCounts.map(n => `<option value="${n}">${n} Players</option>`).join('')}
+        <select class="player-count-select" id="playerCountSelect_${game.id}" onchange="selectPlayerCount('${game.id}', parseInt(this.value, 10))">
+          ${playerCounts.map(n => `<option value="${n}" ${n === selectedPlayerCount ? 'selected' : ''}>${n} Players</option>`).join('')}
         </select>
       </div>
     ` : `<span class="game-players-badge"><i class="bi bi-person"></i> ${playerCounts[0]} Players</span>`;
@@ -162,11 +203,8 @@ function renderGamesCatalog() {
         ${modeSelectorHtml}
 
         <div class="game-card-actions">
-          <button class="btn-primary flex-1" onclick="handleQuickMatch('${game.id}')">
+          <button class="btn-primary w-100" onclick="handleQuickMatch('${game.id}')">
             <i class="bi bi-lightning-charge-fill"></i> Quick Match
-          </button>
-          <button class="btn-primary flex-1" onclick="handleCreateGameDirect('${game.id}')">
-            <i class="bi bi-plus-circle"></i> Create Game
           </button>
         </div>
 
@@ -184,9 +222,6 @@ function renderGamesCatalog() {
           </div>
         </div>
 
-        <div class="game-card-footer">
-          <span>${(game.tags || []).join(' • ')}</span>
-        </div>
       </div>
     `;
   }).join('');
@@ -227,7 +262,7 @@ async function refreshTables(targetGameId) {
       if (openMatches.length === 0) {
         list.innerHTML = `
           <div class="empty-tables-hint">
-            <p><i class="bi bi-info-circle"></i> No open tables. Click <strong>Quick Match</strong> or <strong>Create Game</strong> to start!</p>
+            <p><i class="bi bi-info-circle"></i> None open. Use <strong>Quick Match</strong> to start!</p>
           </div>
         `;
         continue;
@@ -245,7 +280,6 @@ async function refreshTables(targetGameId) {
         return `
           <div class="table-row">
             <div class="table-info-left">
-              <span class="table-id-badge">#${m.matchID.substring(0, 8)}</span>
               ${modeBadgeHtml}
               <span class="table-seats-badge"><i class="bi bi-people"></i> ${joinedCount}/${totalSeats}</span>
             </div>
@@ -270,60 +304,7 @@ function startTablesPolling() {
   }, 4000);
 }
 
-// Create Game Directly from Card
-async function handleCreateGameDirect(targetGameId) {
-  const gameId = targetGameId || state.selectedGameId || (state.games[0] && state.games[0].id);
-  const game = state.games.find(g => g.id === gameId);
-  if (!game) return;
-
-  const playerName = state.currentUser ? state.currentUser.username : promptForName();
-  if (!playerName) return;
-
-  const selectedMode = (state.selectedGameMode && state.selectedGameMode[game.id]) || (game.modes && game.modes[0] ? game.modes[0].id : 'normal');
-  
-  const selectElem = el(`playerCountSelect_${game.id}`);
-  const numPlayers = selectElem ? parseInt(selectElem.value, 10) : (game.playerCounts ? game.playerCounts[0] : 2);
-
-  showToast(`Creating new ${game.name} game (${numPlayers} Players)...`, 'info');
-
-  try {
-    const createRes = await fetch(`/games/${game.id}/create`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        numPlayers,
-        setupData: { mode: selectedMode }
-      })
-    });
-    if (!createRes.ok) throw new Error('Failed to create match');
-    const createData = await createRes.json();
-
-    const joinRes = await fetch(`/games/${game.id}/${createData.matchID}/join`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        playerID: '0',
-        playerName
-      })
-    });
-    if (!joinRes.ok) throw new Error('Failed to join match');
-    const joinData = await joinRes.json();
-
-    showToast(`Created new game #${createData.matchID.substring(0, 8)}!`, 'success');
-    enterMatch({
-      gameName: game.id,
-      matchID: createData.matchID,
-      playerID: '0',
-      credentials: joinData.playerCredentials,
-      playerName,
-      mode: selectedMode
-    });
-  } catch (err) {
-    showToast('Create game error: ' + err.message, 'error');
-  }
-}
-
-// Quick Match
+// Quick Match (Finds unfilled table with matching options or creates one automatically)
 async function handleQuickMatch(targetGameId) {
   const gameId = targetGameId || state.selectedGameId || (state.games[0] && state.games[0].id);
   const game = state.games.find(g => g.id === gameId);
@@ -332,22 +313,35 @@ async function handleQuickMatch(targetGameId) {
   const playerName = state.currentUser ? state.currentUser.username : promptForName();
   if (!playerName) return;
 
-  const selectedMode = (state.selectedGameMode && state.selectedGameMode[game.id]) || (game.modes && game.modes[0] ? game.modes[0].id : 'normal');
+  const modes = game.modes || [];
+  const defaultMode = (modes.find(m => m.isDefault) || modes[0] || {}).id || 'normal';
+  const selectedMode = (state.selectedGameMode && state.selectedGameMode[game.id]) || defaultMode;
 
-  showToast(`Searching for an open ${game.name} match (${selectedMode})...`, 'info');
+  const selectElem = el(`playerCountSelect_${game.id}`);
+  const numPlayers = selectElem ? parseInt(selectElem.value, 10) : (state.selectedPlayerCount && state.selectedPlayerCount[game.id]) || (game.playerCounts ? game.playerCounts[0] : (game.minPlayers || 2));
+
+  const modeObj = modes.find(m => m.id === selectedMode);
+  const modeLabel = modeObj ? modeObj.name : selectedMode;
+
+  showToast(`Searching for open ${game.name} match (${modeLabel}, ${numPlayers}P)...`, 'info');
 
   try {
     const res = await fetch(`/games/${game.id}`);
     const data = await res.json();
     const matches = data.matches || [];
 
-    // Find match with open seat that matches chosen mode
+    // Find match with open seat that matches chosen options (mode, player count)
     for (const m of matches) {
+      if (m.gameover) continue;
+
       const matchMode = (m.setupData && m.setupData.mode) || 'normal';
       if (matchMode !== selectedMode) continue;
 
+      const totalSeats = (m.players || []).length;
+      if (totalSeats !== numPlayers) continue;
+
       const openSlot = (m.players || []).findIndex(p => !p.name);
-      if (openSlot !== -1 && !m.gameover) {
+      if (openSlot !== -1) {
         // Join this match!
         const joinRes = await fetch(`/games/${game.id}/${m.matchID}/join`, {
           method: 'POST',
@@ -373,12 +367,12 @@ async function handleQuickMatch(targetGameId) {
       }
     }
 
-    // No open table found with matching mode -> Create one!
+    // No open table found with matching options -> Create one automatically!
     const createRes = await fetch(`/games/${game.id}/create`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        numPlayers: game.minPlayers || 2,
+        numPlayers,
         setupData: { mode: selectedMode }
       })
     });
@@ -594,8 +588,13 @@ function updatePartyGamePreview() {
 }
 
 async function handleCreateGroup() {
-  const hostName = state.currentUser ? state.currentUser.username : promptForName('Enter your host name:');
-  if (!hostName) return;
+  const nameInput = el('createPartyHostName');
+  const hostName = (nameInput && nameInput.value.trim()) || (state.currentUser ? state.currentUser.username : '');
+  if (!hostName) {
+    showToast('Please enter your name', 'warning');
+    if (nameInput) nameInput.focus();
+    return;
+  }
 
   try {
     const res = await fetch('/api/groups/create', {
@@ -618,13 +617,21 @@ async function handleCreateGroup() {
 }
 
 async function handleJoinGroup() {
-  const code = el('inputPartyCode').value.trim();
-  if (!code) {
-    showToast('Please enter a party code', 'warning');
+  const nameInput = el('joinPartyMemberName');
+  const memberName = (nameInput && nameInput.value.trim()) || (state.currentUser ? state.currentUser.username : '');
+  if (!memberName) {
+    showToast('Please enter your name', 'warning');
+    if (nameInput) nameInput.focus();
     return;
   }
-  const memberName = state.currentUser ? state.currentUser.username : promptForName();
-  if (!memberName) return;
+
+  const codeInput = el('inputPartyCode');
+  const code = codeInput ? codeInput.value.trim() : '';
+  if (!code) {
+    showToast('Please enter a party code', 'warning');
+    if (codeInput) codeInput.focus();
+    return;
+  }
 
   try {
     const res = await fetch(`/api/groups/${encodeURIComponent(code)}/join`, {
@@ -768,7 +775,8 @@ async function handleLaunchPartyGame() {
     showToast('No game selected to launch', 'warning');
     return;
   }
-  const numPlayers = state.currentParty.members.length;
+  const numPlayers = Math.max((state.currentParty.members && state.currentParty.members.length) || 2, 2);
+  const setupData = state.currentParty.setupData || {};
 
   try {
     showToast('Creating match on game server...', 'info');
@@ -777,22 +785,12 @@ async function handleLaunchPartyGame() {
     const createRes = await fetch(`/games/${gameId}/create`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ numPlayers })
+      body: JSON.stringify({ numPlayers, setupData })
     });
     const createData = await createRes.json();
     const matchId = createData.matchID;
 
-    // 2. Notify group server that game is launched
-    await fetch(`/api/groups/${state.currentParty.code}/launch`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        memberId: state.currentMember.id,
-        matchId
-      })
-    });
-
-    // 3. Join host into slot 0
+    // 2. Join host into slot 0 FIRST
     const joinRes = await fetch(`/games/${gameId}/${matchId}/join`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -803,12 +801,24 @@ async function handleLaunchPartyGame() {
     });
     const joinData = await joinRes.json();
 
+    // 3. Immediately enter match so background poller doesn't race to claim slot 0
     enterMatch({
       gameName: gameId,
       matchID: matchId,
       playerID: '0',
       credentials: joinData.playerCredentials,
-      playerName: state.currentMember.name
+      playerName: state.currentMember.name,
+      mode: (setupData && setupData.mode) || ''
+    });
+
+    // 4. Notify group server so other members are alerted to join
+    await fetch(`/api/groups/${state.currentParty.code}/launch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        memberId: state.currentMember.id,
+        matchId
+      })
     });
   } catch (err) {
     showToast('Launch failed: ' + err.message, 'error');
@@ -826,44 +836,86 @@ function startPartyPolling() {
         state.currentParty = null;
         clearInterval(state.partyPollTimer);
         renderActiveParty();
+        updatePlayAgainButton();
         return;
       }
       const data = await res.json();
       const updated = data.group;
 
-      // Check if match was launched by host and we haven't joined yet
-      if (updated.status === 'IN_GAME' && updated.matchId && !state.activeMatch) {
-        state.currentParty = updated;
-        const myIndex = updated.members.findIndex(m => m.id === state.currentMember.id);
-        const playerID = String(myIndex >= 0 ? myIndex : 0);
-
-        // Join match
-        const joinRes = await fetch(`/games/${updated.selectedGameId}/${updated.matchId}/join`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            playerID,
-            playerName: state.currentMember.name
-          })
-        });
-        const joinData = await joinRes.json();
-
-        enterMatch({
-          gameName: updated.selectedGameId,
-          matchID: updated.matchId,
-          playerID,
-          credentials: joinData.playerCredentials,
-          playerName: state.currentMember.name
-        });
+      // Check if a new/next match was launched and we haven't entered it yet
+      if (updated.status === 'IN_GAME' && updated.matchId && (!state.activeMatch || state.activeMatch.matchID !== updated.matchId)) {
+        await transitionToNewMatch(updated);
         return;
       }
 
       state.currentParty = updated;
       renderActiveParty();
+      updatePlayAgainButton();
     } catch (err) {
       console.warn('[POLL] Party sync error:', err.message);
     }
-  }, 2000);
+  }, 1200);
+}
+
+async function transitionToNewMatch(group) {
+  if (!group || !group.matchId || !state.currentMember) return;
+  state.currentParty = group;
+
+  const myIndex = group.members.findIndex(m => m.id === state.currentMember.id);
+  const playerID = String(myIndex >= 0 ? myIndex : (state.currentMember.playerSeat || '0'));
+  const gameId = group.selectedGameId || (state.activeMatch && state.activeMatch.gameName) || 'tic-tac-toe';
+  const playerName = state.currentMember ? state.currentMember.name : (state.currentUser ? state.currentUser.username : `Player ${parseInt(playerID, 10) + 1}`);
+  const mode = (group.setupData && group.setupData.mode) || (state.activeMatch && state.activeMatch.mode) || 'normal';
+
+  try {
+    let joinRes = await fetch(`/games/${gameId}/${group.matchId}/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        playerID,
+        playerName
+      })
+    });
+
+    let assignedSeat = playerID;
+    let credentials = '';
+
+    if (joinRes.ok) {
+      const joinData = await joinRes.json();
+      credentials = joinData.playerCredentials;
+      assignedSeat = joinData.playerID !== undefined ? String(joinData.playerID) : playerID;
+    } else if (joinRes.status === 409) {
+      if (state.activeMatch && state.activeMatch.matchID === group.matchId && state.activeMatch.credentials) {
+        credentials = state.activeMatch.credentials;
+        assignedSeat = state.activeMatch.playerID;
+      } else {
+        // Seat was taken -> auto-claim the first available seat
+        const retryRes = await fetch(`/games/${gameId}/${group.matchId}/join`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ playerName })
+        });
+        if (retryRes.ok) {
+          const retryData = await retryRes.json();
+          credentials = retryData.playerCredentials;
+          assignedSeat = retryData.playerID !== undefined ? String(retryData.playerID) : playerID;
+        }
+      }
+    }
+
+    showToast('Starting new match!', 'success');
+    enterMatch({
+      gameName: gameId,
+      matchID: group.matchId,
+      playerID: assignedSeat,
+      credentials,
+      playerName,
+      mode
+    });
+    updatePlayAgainButton();
+  } catch (err) {
+    console.error('[PLAY AGAIN] Transition error:', err.message);
+  }
 }
 
 async function handleLeaveGroup() {
@@ -879,6 +931,7 @@ async function handleLeaveGroup() {
   state.currentMember = null;
   clearInterval(state.partyPollTimer);
   renderActiveParty();
+  updatePlayAgainButton();
   showToast('Left party room', 'info');
 }
 
@@ -888,11 +941,236 @@ function copyPartyCode() {
   showToast('Party code copied to clipboard!', 'success');
 }
 
+// Sync match with party group for Play Again coordination
+async function syncMatchParty(matchConfig) {
+  // If already attached to an active party session, preserve the room across matches
+  if (state.currentParty && state.currentMember) return;
+
+  const cfg = matchConfig || state.activeMatch;
+  if (!cfg) return;
+  const matchId = cfg.matchID || cfg.matchId;
+  const gameId = cfg.gameName || cfg.gameId || 'tic-tac-toe';
+  const playerSeat = cfg.playerID !== undefined ? String(cfg.playerID) : '0';
+  const memberName = cfg.playerName || (state.currentUser ? state.currentUser.username : `Player ${parseInt(playerSeat, 10) + 1}`);
+  const mode = cfg.mode || (cfg.setupData && cfg.setupData.mode) || 'normal';
+
+  if (!matchId) return;
+
+  try {
+    const res = await fetch('/api/groups/sync-match', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        matchId,
+        memberName,
+        userId: state.currentUser ? state.currentUser.id : null,
+        avatar: state.currentUser ? state.currentUser.avatar : null,
+        gameId,
+        setupData: cfg.setupData || { mode },
+        playerSeat
+      })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      state.currentParty = data.group;
+      state.currentMember = data.member;
+      startPartyPolling();
+      updatePlayAgainButton();
+    }
+  } catch (e) {
+    console.warn('[MATCH-SYNC] Could not sync match group:', e.message);
+  }
+}
+
+// Handle Play Again Button Click
+async function handlePlayAgain() {
+  if (!state.currentParty || !state.currentMember) {
+    const active = state.activeMatch || (localStorage.getItem('tfd_active_match') ? JSON.parse(localStorage.getItem('tfd_active_match')) : null);
+    if (active) {
+      await syncMatchParty(active);
+    }
+  }
+
+  if (!state.currentParty || !state.currentMember) {
+    // Direct rematch fallback if party API is unreachable
+    const active = state.activeMatch || (localStorage.getItem('tfd_active_match') ? JSON.parse(localStorage.getItem('tfd_active_match')) : null);
+    if (active) {
+      showToast('Starting a new match...', 'info');
+      await createDirectRematch(active);
+      return;
+    }
+    showToast('Cannot request rematch: no active match data.', 'warning');
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/groups/${state.currentParty.code}/play-again`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        memberId: state.currentMember.id,
+        isPlayAgain: true
+      })
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.group) {
+        state.currentParty = data.group;
+        updatePlayAgainButton();
+
+        const members = data.group.members || [];
+        const voted = members.filter(m => m.playAgain).length;
+        const total = members.length;
+
+        // If all active players voted
+        if (data.allPlayAgain || (total > 0 && voted >= total)) {
+          if (data.group.matchId && state.activeMatch && data.group.matchId !== state.activeMatch.matchID) {
+            showToast('All players ready! Starting new game...', 'success');
+            await transitionToNewMatch(data.group);
+          } else {
+            // Provision new match and launch
+            showToast('Everyone voted! Launching new game...', 'success');
+            const gameId = data.group.selectedGameId || (state.activeMatch && state.activeMatch.gameName) || 'tic-tac-toe';
+            const numPlayers = Math.max(members.length, 2);
+            const setupData = data.group.setupData || (state.activeMatch && state.activeMatch.setupData) || { mode: 'normal' };
+
+            try {
+              const createRes = await fetch(`/games/${gameId}/create`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ numPlayers, setupData })
+              });
+              if (createRes.ok) {
+                const createData = await createRes.json();
+                const launchRes = await fetch(`/api/groups/${data.group.code}/launch`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    memberId: state.currentMember.id,
+                    matchId: createData.matchID
+                  })
+                });
+                const launchData = launchRes.ok ? await launchRes.json() : null;
+                await transitionToNewMatch((launchData && launchData.group) || { ...data.group, matchId: createData.matchID });
+              }
+            } catch (createErr) {
+              console.error('[PLAY AGAIN] Error creating match on client:', createErr.message);
+            }
+          }
+        } else {
+          showToast(`Play Again requested (${voted}/${total} players ready)`, 'info');
+        }
+      }
+    } else {
+      // If server process hasn't reloaded the route or group expired, fallback to direct table launch
+      const active = state.activeMatch || (localStorage.getItem('tfd_active_match') ? JSON.parse(localStorage.getItem('tfd_active_match')) : null);
+      if (active) {
+        showToast('Restarting match...', 'info');
+        await createDirectRematch(active);
+        return;
+      }
+      throw new Error(`HTTP ${res.status}`);
+    }
+  } catch (err) {
+    const active = state.activeMatch || (localStorage.getItem('tfd_active_match') ? JSON.parse(localStorage.getItem('tfd_active_match')) : null);
+    if (active) {
+      showToast('Restarting match...', 'info');
+      await createDirectRematch(active);
+      return;
+    }
+    showToast('Play again error: ' + err.message, 'error');
+  }
+}
+
+async function createDirectRematch(active) {
+  const gameId = active.gameName || 'tic-tac-toe';
+  const mode = active.mode || (active.setupData && active.setupData.mode) || 'normal';
+  const numPlayers = 2;
+  const playerName = active.playerName || (state.currentUser ? state.currentUser.username : 'Player 1');
+
+  try {
+    const createRes = await fetch(`/games/${gameId}/create`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        numPlayers,
+        setupData: { mode }
+      })
+    });
+    if (!createRes.ok) throw new Error('Failed to create match');
+    const createData = await createRes.json();
+
+    const joinRes = await fetch(`/games/${gameId}/${createData.matchID}/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        playerID: '0',
+        playerName
+      })
+    });
+    const joinData = await joinRes.json();
+
+    enterMatch({
+      gameName: gameId,
+      matchID: createData.matchID,
+      playerID: '0',
+      credentials: joinData.playerCredentials,
+      playerName,
+      mode
+    });
+  } catch (err) {
+    showToast('Rematch error: ' + err.message, 'error');
+  }
+}
+
+window.handlePlayAgain = handlePlayAgain;
+
+window.setMatchGameOver = function(isOver = true) {
+  state.isMatchOver = Boolean(isOver);
+  updatePlayAgainButton();
+};
+
+window.clearActiveMatchState = function() {
+  state.isMatchOver = true;
+  updatePlayAgainButton();
+};
+
+function updatePlayAgainButton() {
+  const btn = el('btnPlayAgain');
+  const label = el('playAgainLabel');
+  if (!btn || !label) return;
+
+  // Only visible when there is NOT an active game (i.e. match has finished)
+  if (!state.isMatchOver || !document.body.classList.contains('in-game')) {
+    btn.classList.add('hidden');
+    return;
+  }
+
+  btn.classList.remove('hidden');
+  const members = (state.currentParty && state.currentParty.members) || [];
+  const votedCount = members.filter(m => m.playAgain).length;
+  const totalCount = Math.max(members.length, 1);
+  const myMember = members.find(m => state.currentMember && m.id === state.currentMember.id);
+  const iVoted = myMember && myMember.playAgain;
+
+  if (iVoted) {
+    btn.classList.add('voted');
+    label.textContent = totalCount > 1 && votedCount < totalCount ?
+      `Waiting for Others (${votedCount}/${totalCount})` :
+      `Ready (${votedCount}/${totalCount})`;
+  } else {
+    btn.classList.remove('voted');
+    label.textContent = votedCount > 0 ? `Play Again (${votedCount}/${totalCount})` : `Play Again`;
+  }
+}
+
 // ==========================================================================
 // MATCH / GAME BOARD MOUNT & PERSISTENCE
 // ==========================================================================
 function enterMatch(matchConfig) {
   state.activeMatch = matchConfig;
+  state.isMatchOver = false;
   try {
     localStorage.setItem('tfd_active_match', JSON.stringify(matchConfig));
   } catch (e) {}
@@ -921,6 +1199,10 @@ function enterMatch(matchConfig) {
   if (titleEl) titleEl.textContent = game ? game.name : matchConfig.gameName;
   if (idEl) idEl.textContent = `Match #${matchIdStr ? matchIdStr.substring(0, 8) : '000'}`;
 
+  // Sync match party & update Play Again button
+  syncMatchParty(matchConfig);
+  updatePlayAgainButton();
+
   checkActiveMatchBanner();
   mountGameClient(matchConfig);
 }
@@ -931,6 +1213,10 @@ function exitToLobby() {
     try { state.boardgameClient.stop(); } catch (e) {}
     state.boardgameClient = null;
   }
+  if (state.currentParty && state.currentParty.code && state.currentParty.code.startsWith('M-')) {
+    handleLeaveGroup();
+  }
+  updatePlayAgainButton();
   const viewBoard = el('viewMatchBoard');
   if (viewBoard) viewBoard.classList.add('hidden');
   switchFlow(state.activeFlow || 'game');

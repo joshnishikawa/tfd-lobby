@@ -131,6 +131,49 @@ router.post('/api/groups/:code/launch', (ctx) => {
   }
 });
 
+router.post('/api/groups/sync-match', (ctx) => {
+  const { matchId, memberName, userId, avatar, gameId, setupData, playerSeat } = ctx.request.body || {};
+  try {
+    const { group, member } = groupManager.getOrCreateMatchGroup(matchId, { memberName, userId, avatar, gameId, setupData, playerSeat });
+    ctx.body = { group, member };
+  } catch (err) {
+    ctx.status = 400;
+    ctx.body = { error: err.message };
+  }
+});
+
+router.post('/api/groups/:code/play-again', async (ctx) => {
+  const { memberId, isPlayAgain } = ctx.request.body || {};
+  try {
+    const result = groupManager.votePlayAgain(ctx.params.code, memberId, isPlayAgain);
+    let group = result.group;
+
+    if (result.allPlayAgain && group && group.selectedGameId) {
+      const numPlayers = group.members.length || 2;
+      const setupData = group.setupData || {};
+      try {
+        const createRes = await fetch(`http://127.0.0.1:${port}/games/${group.selectedGameId}/create`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ numPlayers, setupData })
+        });
+        if (createRes.ok) {
+          const createData = await createRes.json();
+          const hostMember = group.members.find(m => m.isHost) || group.members[0];
+          group = groupManager.launchGame(ctx.params.code, hostMember.id, createData.matchID, true);
+        }
+      } catch (e) {
+        console.error('[PLAY AGAIN] Error auto-creating match:', e.message);
+      }
+    }
+
+    ctx.body = { group, allPlayAgain: result.allPlayAgain };
+  } catch (err) {
+    ctx.status = 400;
+    ctx.body = { error: err.message };
+  }
+});
+
 router.get('/game_modules/:gameId/:filename', async (ctx) => {
   const { gameId, filename } = ctx.params;
   const gameDir = path.join(__dirname, 'game_modules', gameId);

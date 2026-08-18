@@ -10,7 +10,7 @@ The lobby provides a unified matchmaking experience with plug-and-play game modu
 
 - [Architecture Overview](#architecture-overview)
 - [How the Lobby Works](#how-the-lobby-works)
-  - [1. Game-First Flow (Catalog & Tables)](#1-game-first-flow-catalog--tables)
+  - [1. Game-First Flow (Quick Match & Catalog)](#1-game-first-flow-quick-match--catalog)
   - [2. Group-First Flow (Party Lounge)](#2-group-first-flow-party-lounge)
   - [3. Dynamic Discovery & Module Loading](#3-dynamic-discovery--module-loading)
   - [4. Real-time Match Lifecycle](#4-real-time-match-lifecycle)
@@ -54,10 +54,14 @@ tfd-lobby/
 
 The lobby provides two distinct matchmaking pathways for players:
 
-### 1. Game-First Flow (Catalog & Tables)
+### 1. Game-First Flow (Quick Match & Catalog)
 - Players browse the catalog of installed games.
-- Each game card allows selecting game variants/modes and player counts.
-- Players can create public tables or join open seats at existing tables.
+- All game options (player count and gameplay modes/variants) are listed and selected directly on each game card.
+- When a player clicks **Quick Match**:
+  - The system checks for an existing, unfilled table with those exact same selected options.
+  - If a matching unfilled table is found, the player is automatically joined into the next open seat.
+  - If no matching table exists, a new table is created automatically with the selected options and the player enters seat `0`.
+- Open tables are also listed beneath each card with option badges, allowing players to view or join specific open tables manually.
 - Tables communicate directly with standard `boardgame.io` match endpoints (`/games/:gameName/create`, `/games/:gameName/:id/join`, `/games/:gameName`).
 
 ### 2. Group-First Flow (Party Lounge)
@@ -77,11 +81,12 @@ The lobby provides two distinct matchmaking pathways for players:
    - `<script src="/game_modules/<gameId>/client.js"></script>`
 5. It then invokes `window.GameModules[<gameId>].mountClient(container, matchConfig)`.
 
-### 4. Real-time Match Lifecycle
+### 4. Real-time Match Lifecycle & Play Again
 - When a game is mounted, `client.js` opens a Socket.IO connection to the game's namespace: `window.location.origin + '/' + gameName`.
 - The client emits `'sync'` with `matchID`, `playerID`, and `credentials`.
 - State updates sent over Socket.IO (`'sync'` and `'update'`) trigger UI re-renders.
 - Moves are sent via standard Socket.IO move emissions or `boardgame.io` client actions.
+- **Play Again**: Players can click **Play Again** on the match top bar or post-game banner. When all members currently in the party click it, a new match is provisioned automatically with the same game options and all players transition seamlessly into the new game.
 
 ---
 
@@ -369,7 +374,7 @@ Custom styles loaded specifically when a match of this game begins.
 - `GET /api/health` — Service health, active game count, and uptime timestamp.
 - `GET /api/games` — Dynamic metadata list of all active games in `game_modules/`.
 
-### Party Lounge (Group-First Flow)
+### Party Lounge & Match Coordination
 - `POST /api/groups/create` — Create a new party lounge room `{ hostName, hostUserId, hostAvatar }`.
 - `GET /api/groups/:code` — Fetch state and member roster for party code (e.g. `FD-1042`).
 - `POST /api/groups/:code/join` — Join party `{ memberName, userId, avatar }`.
@@ -377,6 +382,8 @@ Custom styles loaded specifically when a match of this game begins.
 - `POST /api/groups/:code/select-game` — Change selected game (Host only) `{ memberId, gameId }`.
 - `POST /api/groups/:code/ready` — Toggle ready state `{ memberId, isReady }`.
 - `POST /api/groups/:code/launch` — Launch synchronized match `{ memberId, matchId }`.
+- `POST /api/groups/sync-match` — Link active match to party room for Play Again coordination.
+- `POST /api/groups/:code/play-again` — Vote to Play Again; auto-provisions a new match when all members agree.
 
 ### Static Assets
 - `GET /game_modules/:gameId/:filename` — Serves module assets (`client.js`, `style.css`, `game.json`).

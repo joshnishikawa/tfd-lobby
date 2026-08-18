@@ -5,23 +5,62 @@
   align-items: center;
   justify-content: flex-start;
   width: 100%;
+  max-width: 100%;
   padding: 0.25rem 0;
+  box-sizing: border-box;
 }
 
 .ttt-status-banner {
   background: rgba(16, 30, 48, 0.85);
   border: 1px solid var(--navy-border-bright, rgba(56, 189, 248, 0.3));
-  padding: 0.6rem 1.35rem;
+  padding: 0.5rem 1.1rem;
   border-radius: 9999px;
-  font-size: 1.05rem;
+  font-size: clamp(0.85rem, 2.8vw, 1.05rem);
   font-weight: 700;
   margin-bottom: 1.25rem;
   color: var(--gold-light, #fef08a);
-  display: flex;
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(10px);
+  max-width: min(94vw, 540px);
+  box-sizing: border-box;
+  text-align: center;
+  flex-wrap: wrap;
+}
+
+.gameover-banner-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.btn-gameover-playagain {
+  background: linear-gradient(135deg, #d4af37 0%, #f6e05e 100%);
+  color: #0b1522;
+  border: none;
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 0.35rem 0.9rem;
+  border-radius: 9999px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  transition: all 0.2s ease;
+  margin-left: 0.5rem;
+  box-shadow: 0 2px 10px rgba(212, 175, 55, 0.35);
+}
+
+.btn-gameover-playagain:hover {
+  filter: brightness(1.15);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(212, 175, 55, 0.5);
 }
 
 .ttt-grid {
@@ -84,13 +123,13 @@
   grid-template-columns: repeat(3, 1fr);
   grid-template-rows: repeat(3, 1fr);
   aspect-ratio: 1 / 1;
-  width: min(92vw, 540px);
-  height: min(92vw, 540px);
-  min-width: min(92vw, 300px);
-  min-height: min(92vw, 300px);
-  gap: clamp(8px, 1.8vw, 14px);
+  width: min(94vw, 540px);
+  height: min(94vw, 540px);
+  max-width: 100%;
+  max-height: min(94vw, 70vh, 540px);
+  gap: clamp(6px, 1.8vw, 14px);
   background: rgba(4, 9, 15, 0.95);
-  padding: clamp(8px, 2vw, 14px);
+  padding: clamp(6px, 2vw, 14px);
   border-radius: 12px;
   border: 2px solid var(--navy-border-bright, rgba(56, 189, 248, 0.3));
   box-shadow: inset 0 0 35px rgba(0, 0, 0, 0.9), 0 12px 40px rgba(0, 0, 0, 0.8);
@@ -210,19 +249,22 @@
 
 @media (max-width: 768px) {
   .ttt-grid {
-    grid-template-columns: repeat(3, clamp(65px, 24vw, 95px));
-    grid-template-rows: repeat(3, clamp(65px, 24vw, 95px));
+    grid-template-columns: repeat(3, clamp(60px, 24vw, 90px));
+    grid-template-rows: repeat(3, clamp(60px, 24vw, 90px));
     gap: 8px;
-    padding: 10px;
+    padding: 8px;
+    max-width: 100%;
+    box-sizing: border-box;
   }
 
   .ttt-cell {
-    font-size: clamp(1.8rem, 8vw, 2.5rem);
+    font-size: clamp(1.6rem, 7vw, 2.3rem);
   }
 
   .ttt-status-banner {
-    padding: 0.6rem 1rem;
-    font-size: 0.95rem;
-    margin-bottom: 1.25rem;
+    padding: 0.45rem 0.85rem;
+    font-size: 0.85rem;
+    margin-bottom: 0.85rem;
+    border-radius: 12px;
   }
 }

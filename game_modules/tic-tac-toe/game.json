@@ -1,7 +1,7 @@
 {
   "id": "tic-tac-toe",
   "name": "Tic Tac Toe",
-  "description": "",
+  "description": "AKA Noughts and Crosses",
   "playerCounts": [2],
   "version": "1.0.0",
   "status": "active",

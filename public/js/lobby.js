@@ -25,6 +25,7 @@ const el = (id) => document.getElementById(id);
 document.addEventListener('DOMContentLoaded', async () => {
   await loadGamesCatalog();
   startTablesPolling();
+  await restorePartySession();
   checkActiveMatchBanner();
   setupPartyInputs();
 });
@@ -93,6 +94,7 @@ function switchFlow(flow) {
     }
     if (viewGroup) {
       viewGroup.classList.remove('active');
+      viewGroup.classList.add('hidden');
     }
     renderGamesCatalog();
     refreshTables();
@@ -105,7 +107,10 @@ function switchFlow(flow) {
     }
     if (viewGame) {
       viewGame.classList.remove('active');
+      viewGame.classList.add('hidden');
     }
+    renderPartyGameOptions();
+    renderActiveParty();
   }
 }
 
@@ -549,6 +554,66 @@ async function submitJoinTable() {
 // ==========================================================================
 // GROUP-FIRST FLOW (PARTY LOUNGE)
 // ==========================================================================
+function savePartySession(group, member) {
+  if (!group || !member || (group.code && group.code.startsWith('M-'))) return;
+  try {
+    localStorage.setItem('tfd_party_session', JSON.stringify({
+      code: group.code,
+      memberId: member.id,
+      member: member
+    }));
+  } catch (e) {}
+}
+
+function clearPartySession() {
+  try {
+    localStorage.removeItem('tfd_party_session');
+  } catch (e) {}
+}
+
+async function restorePartySession() {
+  try {
+    const raw = localStorage.getItem('tfd_party_session');
+    if (!raw) return;
+    const session = JSON.parse(raw);
+    if (!session || !session.code || !session.memberId) {
+      clearPartySession();
+      return;
+    }
+
+    const res = await fetch(`/api/groups/${encodeURIComponent(session.code)}`);
+    if (!res.ok) {
+      clearPartySession();
+      return;
+    }
+
+    const data = await res.json();
+    const group = data.group;
+    if (!group) {
+      clearPartySession();
+      return;
+    }
+
+    const member = group.members.find(m => m.id === session.memberId);
+    if (!member) {
+      clearPartySession();
+      return;
+    }
+
+    state.currentParty = group;
+    state.currentMember = member;
+    savePartySession(group, member);
+
+    switchFlow('group');
+    renderPartyGameOptions();
+    renderActiveParty();
+    startPartyPolling();
+  } catch (err) {
+    console.error('[PARTY RESTORE] Error restoring party session:', err);
+    clearPartySession();
+  }
+}
+
 function renderPartyGameOptions() {
   const select = el('selectPartyGame');
   if (!select) return;
@@ -608,6 +673,7 @@ async function handleCreateGroup() {
     const data = await res.json();
     state.currentParty = data.group;
     state.currentMember = data.member;
+    savePartySession(data.group, data.member);
     renderActiveParty();
     startPartyPolling();
     showToast('Party room created! Share the code.', 'success');
@@ -647,6 +713,7 @@ async function handleJoinGroup() {
 
     state.currentParty = data.group;
     state.currentMember = data.member;
+    savePartySession(data.group, data.member);
     renderActiveParty();
     startPartyPolling();
     showToast(`Joined party ${code}`, 'success');
@@ -742,6 +809,7 @@ async function handleToggleReady() {
     });
     const data = await res.json();
     state.currentParty = data.group;
+    if (state.currentMember) savePartySession(data.group, state.currentMember);
     renderActiveParty();
   } catch (err) {
     showToast('Failed to update ready status', 'error');
@@ -762,6 +830,7 @@ async function handleHostGameChange(gameId) {
     });
     const data = await res.json();
     state.currentParty = data.group;
+    if (state.currentMember) savePartySession(data.group, state.currentMember);
     renderActiveParty();
   } catch (err) {
     showToast('Could not change game: ' + err.message, 'error');
@@ -834,6 +903,8 @@ function startPartyPolling() {
       const res = await fetch(`/api/groups/${state.currentParty.code}`);
       if (res.status === 404) {
         state.currentParty = null;
+        state.currentMember = null;
+        clearPartySession();
         clearInterval(state.partyPollTimer);
         renderActiveParty();
         updatePlayAgainButton();
@@ -841,6 +912,24 @@ function startPartyPolling() {
       }
       const data = await res.json();
       const updated = data.group;
+
+      if (state.currentMember && !updated.members.some(m => m.id === state.currentMember.id)) {
+        state.currentParty = null;
+        state.currentMember = null;
+        clearPartySession();
+        clearInterval(state.partyPollTimer);
+        renderActiveParty();
+        updatePlayAgainButton();
+        return;
+      }
+
+      if (state.currentMember) {
+        const me = updated.members.find(m => m.id === state.currentMember.id);
+        if (me) {
+          state.currentMember = me;
+          savePartySession(updated, me);
+        }
+      }
 
       // Check if a new/next match was launched and we haven't entered it yet
       if (updated.status === 'IN_GAME' && updated.matchId && (!state.activeMatch || state.activeMatch.matchID !== updated.matchId)) {
@@ -929,6 +1018,7 @@ async function handleLeaveGroup() {
   } catch (err) {}
   state.currentParty = null;
   state.currentMember = null;
+  clearPartySession();
   clearInterval(state.partyPollTimer);
   renderActiveParty();
   updatePlayAgainButton();
@@ -1219,7 +1309,7 @@ function exitToLobby() {
   updatePlayAgainButton();
   const viewBoard = el('viewMatchBoard');
   if (viewBoard) viewBoard.classList.add('hidden');
-  switchFlow(state.activeFlow || 'game');
+  switchFlow(state.currentParty && !state.currentParty.code.startsWith('M-') ? 'group' : (state.activeFlow || 'game'));
   checkActiveMatchBanner();
 }
 

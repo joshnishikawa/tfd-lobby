@@ -102,7 +102,7 @@
       <div id="activePartyLounge" class="party-lounge-panel hidden">
         <div class="lounge-header">
           <div class="lounge-title-col">
-            <span class="lounge-label">PARTY LOUNGE</span>
+            <span class="lounge-label">PARTY</span>
             <div class="room-code-badge">
               <span id="loungeRoomCode">FD-0000</span>
               <button class="btn-copy" onclick="copyPartyCode()" title="Copy Code">
@@ -110,9 +110,14 @@
               </button>
             </div>
           </div>
-          <button class="btn-leave-party" onclick="handleLeaveGroup()">
-            <i class="bi bi-box-arrow-left"></i> Leave Party
-          </button>
+          <div class="lounge-header-actions">
+            <button class="btn-ready" id="btnToggleReady" onclick="handleToggleReady()">
+              <i class="bi bi-check-circle"></i> Ready Up
+            </button>
+            <button class="btn-leave-party" onclick="handleLeaveGroup()">
+              <i class="bi bi-box-arrow-left"></i> Leave Party
+            </button>
+          </div>
         </div>
 
         <div class="lounge-body-grid">
@@ -122,18 +127,17 @@
             <div class="members-roster" id="loungeMembersList">
               <!-- Dynamically populated -->
             </div>
-            <div class="ready-action-row">
-              <button class="btn-ready" id="btnToggleReady" onclick="handleToggleReady()">
-                <i class="bi bi-check-circle"></i> Ready Up
-              </button>
-            </div>
+            <p class="launch-hint" id="launchHintText">Waiting for all players to be ready...</p>
           </div>
 
           <!-- Game Selection & Launch Column -->
           <div class="lounge-game-card">
-            <h4><i class="bi bi-dice-5 text-gold"></i> Selected Game</h4>
+            <button class="btn-launch-game" id="btnLaunchPartyGame" onclick="handleLaunchPartyGame()">
+              <i class="bi bi-play-circle-fill"></i> Launch Game
+            </button>
+            
             <div class="host-game-selector" id="hostGameSelectorArea">
-              <label for="selectPartyGame">Game to Play:</label>
+              <label for="selectPartyGame"><i class="bi bi-dice-5 text-gold"></i> Select Game:</label>
               <select id="selectPartyGame" onchange="handleHostGameChange(this.value)">
                 <!-- Dynamically populated -->
               </select>
@@ -147,12 +151,6 @@
               </div>
             </div>
 
-            <div class="launch-action-area">
-              <button class="btn-launch-game" id="btnLaunchPartyGame" onclick="handleLaunchPartyGame()">
-                <i class="bi bi-play-circle-fill"></i> Launch Game
-              </button>
-              <p class="launch-hint" id="launchHintText">Waiting for all players to be ready...</p>
-            </div>
           </div>
         </div>
       </div>

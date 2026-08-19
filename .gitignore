@@ -56,3 +56,7 @@ Thumbs.db
 *.swp
 *.swo
 *~
+
+# Standalone game modules
+game_modules/*
+!game_modules/tic-tac-toe/

@@ -10,6 +10,7 @@
  */
 
 import { state, el } from './modules/state.js';
+import { translateDOM, setLanguage, getLanguage } from './modules/i18n.js';
 import {
   loadGamesCatalog,
   selectGameMode,
@@ -177,6 +178,30 @@ window.clearActiveMatchState = function() {
   updatePlayAgainButton();
 };
 
+// Handle language changes dynamically
+function handleLanguageChange(lang) {
+  setLanguage(lang);
+  translateDOM();
+  if (state.activeFlow === 'game') {
+    renderGamesCatalog();
+  } else {
+    renderPartyGameOptions();
+    renderActiveParty();
+  }
+  checkActiveMatchBanner();
+  updatePlayAgainButton();
+}
+
+window.addEventListener('tfd-language-change', (e) => {
+  const lang = e.detail && e.detail.language;
+  if (lang) handleLanguageChange(lang);
+});
+
+window.addEventListener('languageChanged', (e) => {
+  const lang = e.detail && e.detail.language;
+  if (lang) handleLanguageChange(lang);
+});
+
 // Listen to SSO auth updates from shared tfd-navbar
 window.addEventListener('tfd-auth-change', (e) => {
   const user = e.detail && e.detail.user;
@@ -191,6 +216,7 @@ window.addEventListener('tfd-auth-change', (e) => {
 
 // App Initialization
 document.addEventListener('DOMContentLoaded', async () => {
+  translateDOM();
   await loadGamesCatalog();
   startTablesPolling();
   await restorePartySession(switchFlow);

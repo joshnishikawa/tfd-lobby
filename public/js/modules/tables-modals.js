@@ -4,6 +4,7 @@
 
 import { state, el, escapeHtml, showToast } from './state.js';
 import { enterMatch } from './match-manager.js';
+import { t } from './i18n.js';
 
 // Table Modal Selection State
 let currentModalGameId = null;
@@ -40,7 +41,7 @@ export async function refreshTables(targetGameId) {
       if (openMatches.length === 0) {
         list.innerHTML = `
           <div class="empty-tables-hint">
-            <p><i class="bi bi-info-circle"></i> None open. Use <strong>Quick Match</strong> to start!</p>
+            <p><i class="bi bi-info-circle"></i> ${t('catalog.noOpenTables')}</p>
           </div>
         `;
         continue;
@@ -50,7 +51,7 @@ export async function refreshTables(targetGameId) {
         const mode = (m.setupData && m.setupData.mode) || '';
         const game = state.games.find(g => g.id === gameId);
         const modeObj = game && game.modes ? game.modes.find(md => md.id === mode) : null;
-        const modeLabel = modeObj ? modeObj.name : (mode ? (mode.charAt(0).toUpperCase() + mode.slice(1)) : '');
+        const modeLabel = modeObj ? t(`catalog.modes.${modeObj.id}`, { defaultValue: modeObj.name }) : (mode ? (mode.charAt(0).toUpperCase() + mode.slice(1)) : '');
         const modeBadgeHtml = modeLabel ? `<span class="table-mode-badge ${escapeHtml(mode)}">${escapeHtml(modeLabel)}</span>` : '';
         const joinedCount = (m.players || []).filter(p => p.name).length;
         const totalSeats = (m.players || []).length;
@@ -59,10 +60,10 @@ export async function refreshTables(targetGameId) {
           <div class="table-row">
             <div class="table-info-left">
               ${modeBadgeHtml}
-              <span class="table-seats-badge"><i class="bi bi-people"></i> ${joinedCount}/${totalSeats}</span>
+              <span class="table-seats-badge"><i class="bi bi-people"></i> ${t('tables.playersRatio', { current: joinedCount, total: totalSeats })}</span>
             </div>
             <button class="btn-gold btn-sm" onclick="openJoinTableModal('${gameId}', '${m.matchID}', ${JSON.stringify(m.players).replace(/"/g, '&quot;')}, '${escapeHtml(mode)}')">
-              <i class="bi bi-door-open"></i> Join Table
+              <i class="bi bi-door-open"></i> ${t('tables.joinBtn')}
             </button>
           </div>
         `;
@@ -122,7 +123,7 @@ export function updateCreateModalPlayerOptions() {
   for (let i = min; i <= max; i++) {
     const opt = document.createElement('option');
     opt.value = i;
-    opt.textContent = `${i} Players`;
+    opt.textContent = t('catalog.playersCountOption', { count: i });
     numSelect.appendChild(opt);
   }
 }
@@ -192,7 +193,9 @@ export function openJoinTableModal(gameId, matchID, players, mode) {
   currentModalMode = mode || 'normal';
   const modal = el('joinTableModal');
   const infoEl = el('joinTableInfo');
-  if (infoEl) infoEl.textContent = `Joining Table #${matchID.substring(0, 8)}`;
+  const joinedCount = (players || []).filter(p => p.name).length;
+  const totalSeats = (players || []).length;
+  if (infoEl) infoEl.textContent = t('tables.joiningTableInfo', { id: matchID.substring(0, 8), current: joinedCount, total: totalSeats });
 
   const seatSelect = el('joinSeatSelect');
   if (seatSelect) {
@@ -201,7 +204,7 @@ export function openJoinTableModal(gameId, matchID, players, mode) {
       if (!p.name) {
         const opt = document.createElement('option');
         opt.value = idx;
-        opt.textContent = `Seat ${idx + 1} (Available)`;
+        opt.textContent = t('tables.seatOpen', { seat: idx + 1 });
         seatSelect.appendChild(opt);
       }
     });

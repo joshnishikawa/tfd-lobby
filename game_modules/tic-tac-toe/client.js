@@ -224,6 +224,7 @@ function mountTicTacToeClient(container, config) {
     const banner = document.getElementById('tttStatusBanner');
     if (!banner) return;
 
+    const gt = (k, opts) => (window.lobbyI18n && typeof window.lobbyI18n.t === 'function') ? window.lobbyI18n.t(k, opts) : (opts && opts.defaultValue ? opts.defaultValue : k);
     const mySymbol = String(playerID) === '0' ? 'X' : 'O';
 
     if (ctx.gameover) {
@@ -234,26 +235,26 @@ function mountTicTacToeClient(container, config) {
       if (ctx.gameover.winner !== undefined && ctx.gameover.winner !== null) {
         const isMeWinner = String(ctx.gameover.winner) === String(playerID);
         resultHtml = isMeWinner ? 
-          `<i class="bi bi-trophy-fill" style="color: #f6e05e"></i> Victory! You Won!` :
-          `<i class="bi bi-x-circle-fill" style="color: #ef4444"></i> Game Over. Player ${parseInt(ctx.gameover.winner, 10) + 1} won.`;
+          `<i class="bi bi-trophy-fill" style="color: #f6e05e"></i> ${gt('game.victory', { defaultValue: 'Victory! You Won!' })}` :
+          `<i class="bi bi-x-circle-fill" style="color: #ef4444"></i> ${gt('game.gameOverWinner', { winner: parseInt(ctx.gameover.winner, 10) + 1, defaultValue: `Game Over. Player ${parseInt(ctx.gameover.winner, 10) + 1} won.` })}`;
       } else {
-        resultHtml = `<i class="bi bi-dash-circle-fill"></i> Draw Game!`;
+        resultHtml = `<i class="bi bi-dash-circle-fill"></i> ${gt('game.draw', { defaultValue: 'Draw Game!' })}`;
       }
 
       banner.innerHTML = resultHtml;
     } else if (isWaitingForOpponent) {
       if (typeof window.setMatchGameOver === 'function') window.setMatchGameOver(false);
-      banner.innerHTML = `<i class="bi bi-person-plus-fill text-gold"></i> Waiting for opponent to join match... (1/2 Players)`;
+      banner.innerHTML = `<i class="bi bi-person-plus-fill text-gold"></i> ${gt('game.waitingOpponent', { defaultValue: 'Waiting for opponent to join match... (1/2 Players)' })}`;
     } else {
       if (typeof window.setMatchGameOver === 'function') window.setMatchGameOver(false);
       const turnText = isMyTurn ?
-        `<i class="bi bi-lightning-fill text-gold"></i> Your Turn! (You are ${mySymbol})` :
-        `<i class="bi bi-hourglass-split"></i> Opponent's Turn (You are ${mySymbol})`;
+        `<i class="bi bi-lightning-fill text-gold"></i> ${gt('game.yourTurn', { symbol: mySymbol, defaultValue: `Your Turn! (You are ${mySymbol})` })}` :
+        `<i class="bi bi-hourglass-split"></i> ${gt('game.opponentsTurn', { symbol: mySymbol, defaultValue: `Opponent's Turn (You are ${mySymbol})` })}`;
 
       if (mode === 'ultimate') {
         const boardHint = G.activeBoard === null ?
-          ' (Free Move in ANY Grid)' :
-          ` (Play in Grid #${G.activeBoard + 1})`;
+          gt('game.freeMoveAnyGrid', { defaultValue: ' (Free Move in ANY Grid)' }) :
+          gt('game.playInGrid', { grid: G.activeBoard + 1, defaultValue: ` (Play in Grid #${G.activeBoard + 1})` });
         banner.innerHTML = turnText + `<span style="font-size:0.85rem; color:var(--text-muted); margin-left:0.4rem;">${boardHint}</span>`;
       } else {
         banner.innerHTML = turnText;

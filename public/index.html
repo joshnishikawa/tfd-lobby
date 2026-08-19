@@ -36,11 +36,11 @@
       <div class="flow-tabs">
         <button class="flow-tab-btn active" id="tabGameFirst" onclick="switchFlow('game')">
           <i class="bi bi-dice-5-fill"></i>
-          <span>Quick Match</span>
+          <span data-i18n="hero.quickMatch">Quick Match</span>
         </button>
         <button class="flow-tab-btn" id="tabGroupFirst" onclick="switchFlow('group')">
           <i class="bi bi-people-fill"></i>
-          <span>Party Lounge</span>
+          <span data-i18n="hero.partyLounge">Party Lounge</span>
         </button>
       </div>
     </section>
@@ -63,19 +63,19 @@
       <!-- Party Entry Area (shown when not in a party) -->
       <div id="partyEntryArea" class="party-entry-panel">
         <div class="party-card join-party-card">
-          <h3>Join Existing Party</h3>
-          <p>Have a party code from a friend? Enter it below to step right into their lounge room.</p>
+          <h3 data-i18n="party.joinTitle">Join Existing Party</h3>
+          <p data-i18n="party.joinDesc">Have a party code from a friend? Enter it below to step right into their lounge room.</p>
           <div class="party-form">
             <div class="form-group">
-              <label for="joinPartyMemberName">Your Name:</label>
-              <input type="text" id="joinPartyMemberName" class="form-control" placeholder="Enter your display name" maxlength="30" autocomplete="nickname" />
+              <label for="joinPartyMemberName" data-i18n="party.yourName">Your Name:</label>
+              <input type="text" id="joinPartyMemberName" class="form-control" placeholder="Enter your display name" data-i18n-placeholder="party.namePlaceholder" maxlength="30" autocomplete="nickname" />
             </div>
             <div class="form-group">
-              <label for="inputPartyCode">Party Code:</label>
+              <label for="inputPartyCode" data-i18n="party.partyCode">Party Code:</label>
               <div class="join-input-group">
-                <input type="text" id="inputPartyCode" placeholder="e.g. FD-1234" maxlength="10" autocomplete="off" />
+                <input type="text" id="inputPartyCode" placeholder="e.g. FD-1234" data-i18n-placeholder="party.codePlaceholder" maxlength="10" autocomplete="off" />
                 <button class="btn-gold" onclick="handleJoinGroup()">
-                  <i class="bi bi-arrow-right-circle-fill"></i> Join
+                  <i class="bi bi-arrow-right-circle-fill"></i> <span data-i18n="party.joinBtn">Join</span>
                 </button>
               </div>
             </div>
@@ -83,15 +83,15 @@
         </div>
 
         <div class="party-card create-party-card">
-          <h3>Host a New Party</h3>
-          <p>Create a private room with a shareable code. Gather your friends first, pick any game, and launch together.</p>
+          <h3 data-i18n="party.createTitle">Host a New Party</h3>
+          <p data-i18n="party.createDesc">Create a private room with a shareable code. Gather your friends first, pick any game, and launch together.</p>
           <div class="party-form">
             <div class="form-group">
-              <label for="createPartyHostName">Your Name:</label>
-              <input type="text" id="createPartyHostName" class="form-control" placeholder="Enter your display name" maxlength="30" autocomplete="nickname" />
+              <label for="createPartyHostName" data-i18n="party.yourName">Your Name:</label>
+              <input type="text" id="createPartyHostName" class="form-control" placeholder="Enter your display name" data-i18n-placeholder="party.namePlaceholder" maxlength="30" autocomplete="nickname" />
             </div>
             <button class="btn-primary w-100" onclick="handleCreateGroup()">
-              <i class="bi bi-plus-circle-fill"></i> Create Party
+              <i class="bi bi-plus-circle-fill"></i> <span data-i18n="party.createBtn">Create Party</span>
             </button>
           </div>
         </div>
@@ -102,20 +102,20 @@
       <div id="activePartyLounge" class="party-lounge-panel hidden">
         <div class="lounge-header">
           <div class="lounge-title-col">
-            <span class="lounge-label">PARTY</span>
+            <span class="lounge-label" data-i18n="party.partyBadge">PARTY</span>
             <div class="room-code-badge">
               <span id="loungeRoomCode">FD-0000</span>
-              <button class="btn-copy" onclick="copyPartyCode()" title="Copy Code">
+              <button class="btn-copy" onclick="copyPartyCode()" title="Copy Code" data-i18n-title="party.copyCodeTitle">
                 <i class="bi bi-clipboard"></i>
               </button>
             </div>
           </div>
           <div class="lounge-header-actions">
             <button class="btn-ready" id="btnToggleReady" onclick="handleToggleReady()">
-              <i class="bi bi-check-circle"></i> Ready Up
+              <i class="bi bi-check-circle"></i> <span id="btnToggleReadyText" data-i18n="party.readyUp">Ready Up</span>
             </button>
             <button class="btn-leave-party" onclick="handleLeaveGroup()">
-              <i class="bi bi-box-arrow-left"></i> Leave Party
+              <i class="bi bi-box-arrow-left"></i> <span data-i18n="party.leaveParty">Leave Party</span>
             </button>
           </div>
         </div>
@@ -123,21 +123,21 @@
         <div class="lounge-body-grid">
           <!-- Members Column -->
           <div class="lounge-members-card">
-            <h4><i class="bi bi-people-fill text-gold"></i> Party Members (<span id="loungeMemberCount">1</span>)</h4>
+            <h4><i class="bi bi-people-fill text-gold"></i> <span id="loungeMembersHeader">Party Members</span> (<span id="loungeMemberCount">1</span>)</h4>
             <div class="members-roster" id="loungeMembersList">
               <!-- Dynamically populated -->
             </div>
-            <p class="launch-hint" id="launchHintText">Waiting for all players to be ready...</p>
+            <p class="launch-hint" id="launchHintText" data-i18n="party.waitingReady">Waiting for all players to be ready...</p>
           </div>
 
           <!-- Game Selection & Launch Column -->
           <div class="lounge-game-card">
             <button class="btn-launch-game" id="btnLaunchPartyGame" onclick="handleLaunchPartyGame()">
-              <i class="bi bi-play-circle-fill"></i> Launch Game
+              <i class="bi bi-play-circle-fill"></i> <span data-i18n="party.launchGame">Launch Game</span>
             </button>
             
             <div class="host-game-selector" id="hostGameSelectorArea">
-              <label for="selectPartyGame"><i class="bi bi-dice-5 text-gold"></i> Select Game:</label>
+              <label for="selectPartyGame"><i class="bi bi-dice-5 text-gold"></i> <span data-i18n="party.selectGameLabel">Select Game:</span></label>
               <select id="selectPartyGame" onchange="handleHostGameChange(this.value)">
                 <!-- Dynamically populated -->
               </select>
@@ -161,15 +161,15 @@
       <div class="match-top-bar">
         <div class="match-nav-actions">
           <button class="btn-pill btn-to-lobby" onclick="exitToLobby()">
-            <i class="bi bi-arrow-left"></i> To Lobby
+            <i class="bi bi-arrow-left"></i> <span data-i18n="match.toLobby">To Lobby</span>
           </button>
           <button class="btn-pill btn-play-again hidden" id="btnPlayAgain" onclick="handlePlayAgain()">
-            <i class="bi bi-arrow-repeat"></i> <span id="playAgainLabel">Play Again</span>
+            <i class="bi bi-arrow-repeat"></i> <span id="playAgainLabel" data-i18n="match.playAgain">Play Again</span>
           </button>
         </div>
 
         <div class="match-meta">
-          <span class="match-game-title" id="boardGameTitle">Game Board</span>
+          <span class="match-game-title" id="boardGameTitle" data-i18n="match.gameBoard">Game Board</span>
         </div>
 
         <div class="match-player-info" id="boardPlayerStatus">
@@ -193,31 +193,31 @@
   <div class="modal-overlay hidden" id="createTableModal">
     <div class="modal-card">
       <div class="modal-header">
-        <h3><i class="bi bi-plus-circle text-gold"></i> Create Game Table</h3>
+        <h3><i class="bi bi-plus-circle text-gold"></i> <span data-i18n="tables.createTitle">Create Game Table</span></h3>
         <button class="modal-close" onclick="closeCreateTableModal()">&times;</button>
       </div>
       <div class="modal-body">
         <div class="form-group">
-          <label for="createGameSelect">Game:</label>
+          <label for="createGameSelect" data-i18n="tables.gameLabel">Game:</label>
           <select id="createGameSelect" class="form-control" onchange="updateCreateModalPlayerOptions()">
             <!-- Populated dynamically -->
           </select>
         </div>
         <div class="form-group">
-          <label for="createNumPlayers">Player Count:</label>
+          <label for="createNumPlayers" data-i18n="tables.playerCountLabel">Player Count:</label>
           <select id="createNumPlayers" class="form-control">
             <option value="2">2 Players</option>
           </select>
         </div>
         <div class="form-group">
-          <label for="createPlayerName">Your Name:</label>
-          <input type="text" id="createPlayerName" class="form-control" placeholder="Enter your display name" maxlength="30" />
+          <label for="createPlayerName" data-i18n="tables.yourNameLabel">Your Name:</label>
+          <input type="text" id="createPlayerName" class="form-control" placeholder="Enter your display name" data-i18n-placeholder="party.namePlaceholder" maxlength="30" />
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn-secondary" onclick="closeCreateTableModal()">Cancel</button>
+        <button class="btn-secondary" onclick="closeCreateTableModal()" data-i18n="tables.cancel">Cancel</button>
         <button class="btn-primary" onclick="submitCreateTable()">
-          <i class="bi bi-check-lg"></i> Create & Join
+          <i class="bi bi-check-lg"></i> <span data-i18n="tables.createAndJoin">Create & Join</span>
         </button>
       </div>
     </div>
@@ -227,26 +227,26 @@
   <div class="modal-overlay hidden" id="joinTableModal">
     <div class="modal-card">
       <div class="modal-header">
-        <h3><i class="bi bi-door-open text-gold"></i> Join Game Table</h3>
+        <h3><i class="bi bi-door-open text-gold"></i> <span data-i18n="tables.joinTitle">Join Game Table</span></h3>
         <button class="modal-close" onclick="closeJoinTableModal()">&times;</button>
       </div>
       <div class="modal-body">
         <p id="joinTableInfo">Joining table...</p>
         <div class="form-group">
-          <label for="joinPlayerName">Your Name:</label>
-          <input type="text" id="joinPlayerName" class="form-control" placeholder="Enter your display name" maxlength="30" />
+          <label for="joinPlayerName" data-i18n="tables.yourNameLabel">Your Name:</label>
+          <input type="text" id="joinPlayerName" class="form-control" placeholder="Enter your display name" data-i18n-placeholder="party.namePlaceholder" maxlength="30" />
         </div>
         <div class="form-group">
-          <label for="joinSeatSelect">Select Seat / Player Slot:</label>
+          <label for="joinSeatSelect" data-i18n="tables.seatSelectLabel">Select Seat / Player Slot:</label>
           <select id="joinSeatSelect" class="form-control">
             <!-- Populated dynamically with available seats -->
           </select>
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn-secondary" onclick="closeJoinTableModal()">Cancel</button>
+        <button class="btn-secondary" onclick="closeJoinTableModal()" data-i18n="tables.cancel">Cancel</button>
         <button class="btn-primary" onclick="submitJoinTable()">
-          <i class="bi bi-play-fill"></i> Join Table
+          <i class="bi bi-play-fill"></i> <span data-i18n="tables.joinTable">Join Table</span>
         </button>
       </div>
     </div>

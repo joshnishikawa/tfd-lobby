@@ -3,6 +3,7 @@
  */
 
 import { state, el, escapeHtml, showToast } from './state.js';
+import { t } from './i18n.js';
 
 let switchFlowHandler = null;
 let leaveGroupHandler = null;
@@ -109,14 +110,14 @@ export function checkActiveMatchBanner() {
     banner.innerHTML = `
       <div class="active-match-info">
         <span class="active-match-pulse"></span>
-        <span>Active Match: <strong>${escapeHtml(gameTitle)} (#${matchShortId})</strong></span>
+        <span>${escapeHtml(t('match.activeMatchBanner', { game: gameTitle, matchId: matchShortId }))}</span>
       </div>
       <div class="active-match-actions">
         <button class="btn-gold btn-sm active-banner-btn" onclick="resumeActiveMatch()">
-          <i class="bi bi-play-fill"></i> Resume
+          <i class="bi bi-play-fill"></i> ${escapeHtml(t('match.resumeMatch'))}
         </button>
         <button class="btn-secondary btn-sm active-banner-btn" onclick="abandonActiveMatch()">
-          <i class="bi bi-x-lg"></i> Leave
+          <i class="bi bi-x-lg"></i> ${escapeHtml(t('match.abandonMatch'))}
         </button>
       </div>
     `;
@@ -434,11 +435,11 @@ export function updatePlayAgainButton() {
   if (iVoted) {
     btn.classList.add('voted');
     label.textContent = totalCount > 1 && votedCount < totalCount ?
-      `Waiting for Others (${votedCount}/${totalCount})` :
-      `Ready (${votedCount}/${totalCount})`;
+      `${t('party.ready')} (${votedCount}/${totalCount})` :
+      `${t('party.ready')} (${votedCount}/${totalCount})`;
   } else {
     btn.classList.remove('voted');
-    label.textContent = votedCount > 0 ? `Play Again (${votedCount}/${totalCount})` : `Play Again`;
+    label.textContent = votedCount > 0 ? `${t('match.playAgain')} (${votedCount}/${totalCount})` : t('match.playAgain');
   }
 }
 

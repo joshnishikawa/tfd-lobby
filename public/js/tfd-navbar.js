@@ -22,6 +22,62 @@
     { code: 'ja', name: '日本語', flag: '🇯🇵' }
   ];
 
+  const NAVBAR_I18N = {
+    en: {
+      nav: {
+        home: 'Home',
+        lobby: 'Lobby',
+        lobbyDrawer: 'Lobby & Games',
+        forum: 'Forum',
+        stats: 'Stats',
+        statsDrawer: 'Stats & Rankings',
+        login: 'Login',
+        logout: 'Logout'
+      },
+      common: {
+        language: 'Language',
+        selectLanguage: 'Select Language'
+      }
+    },
+    es: {
+      nav: {
+        home: 'Inicio',
+        lobby: 'Sala',
+        lobbyDrawer: 'Sala y Juegos',
+        forum: 'Foro',
+        stats: 'Estadísticas',
+        statsDrawer: 'Estadísticas y Clasificaciones',
+        login: 'Iniciar Sesión',
+        logout: 'Cerrar Sesión'
+      },
+      common: {
+        language: 'Idioma',
+        selectLanguage: 'Seleccionar Idioma'
+      }
+    },
+    ja: {
+      nav: {
+        home: 'ホーム',
+        lobby: 'ロビー',
+        lobbyDrawer: 'ロビー＆ゲーム',
+        forum: 'フォーラム',
+        stats: '統計',
+        statsDrawer: '統計＆ランキング',
+        login: 'ログイン',
+        logout: 'ログアウト'
+      },
+      common: {
+        language: '言語',
+        selectLanguage: '言語を選択'
+      }
+    }
+  };
+
+  function getNavbarText(lang, section, key, def) {
+    const l = NAVBAR_I18N[lang] || NAVBAR_I18N['en'];
+    return (l[section] && l[section][key]) || def || key;
+  }
+
   // Helper to detect current language
   function getCurrentLanguage() {
     if (window.flyOnI18n && typeof window.flyOnI18n.getLanguage === 'function') {
@@ -33,6 +89,16 @@
   function getLangInfo(lang) {
     const found = LANGUAGES.find(l => l.code === lang);
     return found || LANGUAGES[0];
+  }
+
+  function setLanguageCookie(langCode) {
+    const d = new Date();
+    d.setTime(d.getTime() + (365 * 24 * 60 * 60 * 1000));
+    const expires = `expires=${d.toUTCString()}`;
+    const domain = window.location.hostname.includes('theflyingdutchmen.games')
+      ? '; domain=.theflyingdutchmen.games'
+      : '';
+    document.cookie = `i18next=${langCode}; ${expires}; path=/${domain}; SameSite=Lax`;
   }
 
   // Detect active section based on current hostname / pathname
@@ -141,6 +207,8 @@
     async selectLanguage(langCode) {
       this.currentLanguage = langCode;
       localStorage.setItem('site-language', langCode);
+      localStorage.setItem('fly-on-language', langCode);
+      setLanguageCookie(langCode);
 
       if (window.flyOnI18n && typeof window.flyOnI18n.changeLanguage === 'function') {
         await window.flyOnI18n.changeLanguage(langCode);
@@ -155,6 +223,7 @@
         this.options.onLanguageChange(langCode);
       }
       window.dispatchEvent(new CustomEvent('tfd-language-change', { detail: { language: langCode } }));
+      window.dispatchEvent(new CustomEvent('languageChanged', { detail: { language: langCode } }));
     }
 
     renderLanguageModal() {
@@ -165,13 +234,15 @@
         document.body.appendChild(modal);
       }
 
+      const modalTitle = getNavbarText(this.currentLanguage, 'common', 'selectLanguage', 'Select Language');
+
       modal.innerHTML = `
         <div class="modal d-block" style="background: rgba(0,0,0,0.75); backdrop-filter: blur(8px); position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 2000; display: flex; align-items: center; justify-content: center;">
           <div class="modal-dialog modal-dialog-centered" style="max-width: 440px; width: 90%; margin: 0;">
             <div class="modal-content" style="background: linear-gradient(180deg, #101c10 0%, #162616 100%); border: 2px solid rgba(212, 175, 55, 0.4); border-radius: 16px; box-shadow: 0 12px 40px rgba(0,0,0,0.7); overflow: hidden; color: #f8fafc;">
               <div class="modal-header" style="border-bottom: 1px solid rgba(212, 175, 55, 0.25); padding: 1.25rem 1.5rem; display: flex; align-items: center; justify-content: space-between;">
                 <h5 class="modal-title" style="margin: 0; font-weight: 700; display: flex; align-items: center; gap: 0.5rem; color: #f7df8b; font-size: 1.1rem;">
-                  <i class="bi bi-translate"></i> Select Language
+                  <i class="bi bi-translate"></i> ${modalTitle}
                 </h5>
                 <button type="button" class="btn-close-modal" id="tfdCloseLangModal" style="background: transparent; border: none; color: #94a3b8; font-size: 1.4rem; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0.25rem;">
                   <i class="bi bi-x-lg"></i>
@@ -212,20 +283,29 @@
       const langInfo = getLangInfo(this.currentLanguage);
       const returnUrl = encodeURIComponent(window.location.href);
 
-      const navLinksHtml = NAV_ITEMS.map(item => `
-        <li>
-          <a href="${item.href}" class="tfd-nav-link ${active === item.id ? 'active' : ''}">
-            <i class="bi ${item.icon}"></i> ${item.label}
-          </a>
-        </li>
-      `).join('');
+      const navLinksHtml = NAV_ITEMS.map(item => {
+        const label = getNavbarText(this.currentLanguage, 'nav', item.id, item.label);
+        return `
+          <li>
+            <a href="${item.href}" class="tfd-nav-link ${active === item.id ? 'active' : ''}">
+              <i class="bi ${item.icon}"></i> ${label}
+            </a>
+          </li>
+        `;
+      }).join('');
 
-      const drawerLinksHtml = NAV_ITEMS.map(item => `
-        <a href="${item.href}" class="tfd-mobile-link ${active === item.id ? 'active' : ''}">
-          <i class="bi ${item.icon} fs-5 text-warning"></i>
-          <span>${item.drawerLabel || item.label}</span>
-        </a>
-      `).join('');
+      const drawerLinksHtml = NAV_ITEMS.map(item => {
+        const label = getNavbarText(this.currentLanguage, 'nav', item.id === 'lobby' ? 'lobbyDrawer' : (item.id === 'stats' ? 'statsDrawer' : item.id), item.drawerLabel || item.label);
+        return `
+          <a href="${item.href}" class="tfd-mobile-link ${active === item.id ? 'active' : ''}">
+            <i class="bi ${item.icon} fs-5 text-warning"></i>
+            <span>${label}</span>
+          </a>
+        `;
+      }).join('');
+
+      const loginLabel = getNavbarText(this.currentLanguage, 'nav', 'login', 'Login');
+      const langLabel = getNavbarText(this.currentLanguage, 'common', 'language', 'Language');
 
       this.containerEl.innerHTML = `
         <div class="tfd-navbar-inner">
@@ -246,7 +326,7 @@
           <!-- Row 2 (Mobile Portrait) / Right Side (Desktop): Language, SSO Login & Mobile Toggle -->
           <div class="tfd-actions-row">
             <div class="tfd-actions-left">
-              <button class="tfd-icon-btn" id="tfdLangBtn" title="Select Language" aria-label="Select Language">
+              <button class="tfd-icon-btn" id="tfdLangBtn" title="${langLabel}" aria-label="${langLabel}">
                 <span>${langInfo.flag}</span>
                 <span style="font-size: 0.8rem">${langInfo.code.toUpperCase()}</span>
               </button>
@@ -256,7 +336,7 @@
               <div id="tfdAuthContainer" class="tfd-actions-right">
                 <a href="https://theflyingdutchmen.games/login?returnTo=${returnUrl}" class="tfd-btn-login">
                   <i class="bi bi-box-arrow-in-right"></i>
-                  <span>Login</span>
+                  <span>${loginLabel}</span>
                 </a>
               </div>
 
@@ -283,12 +363,12 @@
         <hr style="border-color: rgba(212, 175, 55, 0.2); margin: 0.5rem 0;" />
         <button class="tfd-mobile-link w-100 text-start border-0" id="tfdDrawerLangBtn" style="background: transparent;">
           <i class="bi bi-translate fs-5 text-warning"></i>
-          <span>Language (${langInfo.flag} ${langInfo.code.toUpperCase()})</span>
+          <span>${langLabel} (${langInfo.flag} ${langInfo.code.toUpperCase()})</span>
         </button>
         <div id="tfdDrawerAuthContainer">
           <a href="https://theflyingdutchmen.games/login?returnTo=${returnUrl}" class="tfd-btn-login w-100 justify-content-center py-2 mt-2">
             <i class="bi bi-box-arrow-in-right"></i>
-            <span>Login</span>
+            <span>${loginLabel}</span>
           </a>
         </div>
       `;
@@ -298,6 +378,8 @@
       const authContainer = document.getElementById('tfdAuthContainer');
       const drawerAuthContainer = document.getElementById('tfdDrawerAuthContainer');
       const returnUrl = encodeURIComponent(window.location.href);
+      const loginLabel = getNavbarText(this.currentLanguage, 'nav', 'login', 'Login');
+      const logoutLabel = getNavbarText(this.currentLanguage, 'nav', 'logout', 'Logout');
 
       if (this.currentUser) {
         const userHtml = `
@@ -307,7 +389,7 @@
               ${this.currentUser.username}
             </span>
             <span class="tfd-user-role">${this.currentUser.role || 'USER'}</span>
-            <a href="https://theflyingdutchmen.games/logout?redirect=${returnUrl}" class="tfd-user-logout" title="Logout" aria-label="Logout">
+            <a href="https://theflyingdutchmen.games/logout?redirect=${returnUrl}" class="tfd-user-logout" title="${logoutLabel}" aria-label="${logoutLabel}">
               <i class="bi bi-box-arrow-right"></i>
             </a>
           </div>
@@ -316,7 +398,7 @@
         const drawerUserHtml = `
           <a href="https://theflyingdutchmen.games/logout?redirect=${returnUrl}" class="btn btn-outline-danger w-100 py-2 d-flex align-items-center justify-content-center gap-2 mt-2" style="text-decoration: none; border-radius: 8px;">
             <i class="bi bi-box-arrow-right"></i>
-            <span>Logout (${this.currentUser.username})</span>
+            <span>${logoutLabel} (${this.currentUser.username})</span>
           </a>
         `;
 
@@ -326,13 +408,13 @@
         const guestHtml = `
           <a href="https://theflyingdutchmen.games/login?returnTo=${returnUrl}" class="tfd-btn-login">
             <i class="bi bi-box-arrow-in-right"></i>
-            <span>Login</span>
+            <span>${loginLabel}</span>
           </a>
         `;
         const drawerGuestHtml = `
           <a href="https://theflyingdutchmen.games/login?returnTo=${returnUrl}" class="tfd-btn-login w-100 justify-content-center py-2 mt-2">
             <i class="bi bi-box-arrow-in-right"></i>
-            <span>Login</span>
+            <span>${loginLabel}</span>
           </a>
         `;
 

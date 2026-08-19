@@ -4,6 +4,7 @@
 
 import { state, el, escapeHtml, showToast } from './state.js';
 import { enterMatch, updatePlayAgainButton, transitionToNewMatch } from './match-manager.js';
+import { t } from './i18n.js';
 
 /**
  * Persist active party session to localStorage
@@ -118,9 +119,12 @@ export function updatePartyGamePreview() {
     return;
   }
 
+  const gameDesc = t(`catalog.descriptions.${game.id}`, { defaultValue: game.description || 'No description available.' });
+  const countStr = game.minPlayers === game.maxPlayers ? game.minPlayers : `${game.minPlayers}-${game.maxPlayers}`;
+
   if (el('partyGameName')) el('partyGameName').textContent = game.name;
-  if (el('partyGameDesc')) el('partyGameDesc').textContent = game.description || 'No description available.';
-  if (el('partyGameReqs')) el('partyGameReqs').innerHTML = `<i class="bi bi-info-circle"></i> Requires ${game.minPlayers === game.maxPlayers ? game.minPlayers : `${game.minPlayers}-${game.maxPlayers}`} players`;
+  if (el('partyGameDesc')) el('partyGameDesc').textContent = gameDesc;
+  if (el('partyGameReqs')) el('partyGameReqs').innerHTML = `<i class="bi bi-info-circle"></i> ${t('catalog.playersCount', { count: countStr })}`;
 }
 
 /**
@@ -160,19 +164,19 @@ export async function handleCreateGroup() {
  * Join an existing party lounge with a room code
  */
 export async function handleJoinGroup() {
-  const nameInput = el('joinPartyMemberName');
-  const memberName = (nameInput && nameInput.value.trim()) || (state.currentUser ? state.currentUser.username : '');
-  if (!memberName) {
-    showToast('Please enter your name', 'warning');
-    if (nameInput) nameInput.focus();
-    return;
-  }
-
   const codeInput = el('inputPartyCode');
-  const code = codeInput ? codeInput.value.trim() : '';
+  const nameInput = el('joinPartyMemberName');
+  const code = (codeInput && codeInput.value.trim().toUpperCase()) || '';
+  const memberName = (nameInput && nameInput.value.trim()) || (state.currentUser ? state.currentUser.username : '');
+
   if (!code) {
     showToast('Please enter a party code', 'warning');
     if (codeInput) codeInput.focus();
+    return;
+  }
+  if (!memberName) {
+    showToast('Please enter your name', 'warning');
+    if (nameInput) nameInput.focus();
     return;
   }
 
@@ -185,17 +189,20 @@ export async function handleJoinGroup() {
         userId: state.currentUser ? state.currentUser.id : null
       })
     });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Could not join party');
+    }
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Failed to join group');
-
     state.currentParty = data.group;
     state.currentMember = data.member;
     savePartySession(data.group, data.member);
+    renderPartyGameOptions();
     renderActiveParty();
     startPartyPolling();
-    showToast(`Joined party ${code}`, 'success');
+    showToast(`Joined party ${data.group.code}!`, 'success');
   } catch (err) {
-    showToast(err.message, 'error');
+    showToast(err.message || 'Failed to join party room', 'error');
   }
 }
 
@@ -218,6 +225,7 @@ export function renderActiveParty() {
 
   if (el('loungeRoomCode')) el('loungeRoomCode').textContent = state.currentParty.code;
   if (el('loungeMemberCount')) el('loungeMemberCount').textContent = state.currentParty.members.length;
+  if (el('loungeMembersHeader')) el('loungeMembersHeader').textContent = t('party.partyMembers', { count: state.currentParty.members.length }).split('(')[0].trim();
 
   const isHost = state.currentMember && state.currentMember.isHost;
   if (el('hostGameSelectorArea')) el('hostGameSelectorArea').style.display = isHost ? 'block' : 'none';
@@ -231,11 +239,11 @@ export function renderActiveParty() {
         <div class="member-name-info">
           <i class="bi bi-person-circle text-gold"></i>
           <span>${escapeHtml(m.name)}</span>
-          ${m.isHost ? '<span class="host-tag">HOST</span>' : ''}
-          ${state.currentMember && m.id === state.currentMember.id ? '<span style="font-size: 0.75rem; color: #94a3b8;">(You)</span>' : ''}
+          ${m.isHost ? `<span class="host-tag">${t('party.hostTag')}</span>` : ''}
+          ${state.currentMember && m.id === state.currentMember.id ? `<span style="font-size: 0.75rem; color: #94a3b8;">(${t('party.youTag')})</span>` : ''}
         </div>
         <span class="ready-badge ${m.isReady ? 'is-ready' : 'not-ready'}">
-          ${m.isReady ? '<i class="bi bi-check"></i> Ready' : 'Not Ready'}
+          ${m.isReady ? `<i class="bi bi-check"></i> ${t('party.ready')}` : t('party.notReady')}
         </span>
       </div>
     `).join('');
@@ -247,10 +255,10 @@ export function renderActiveParty() {
   if (btnReady) {
     if (me && me.isReady) {
       btnReady.classList.add('active-ready');
-      btnReady.innerHTML = '<i class="bi bi-check-circle-fill"></i> You are Ready';
+      btnReady.innerHTML = `<i class="bi bi-check-circle-fill"></i> ${t('party.ready')}`;
     } else {
       btnReady.classList.remove('active-ready');
-      btnReady.innerHTML = '<i class="bi bi-check-circle"></i> Ready Up';
+      btnReady.innerHTML = `<i class="bi bi-check-circle"></i> ${t('party.readyUp')}`;
     }
   }
 
@@ -265,6 +273,7 @@ export function renderActiveParty() {
   const minPlayers = game ? game.minPlayers : 2;
   const maxPlayers = game ? game.maxPlayers : 2;
   const currentCount = state.currentParty.members.length;
+  const readyCount = state.currentParty.members.filter(m => m.isReady).length;
   const allReady = state.currentParty.members.every(m => m.isReady);
 
   const canLaunch = currentCount >= minPlayers && currentCount <= maxPlayers && allReady;
@@ -274,13 +283,13 @@ export function renderActiveParty() {
   const hintText = el('launchHintText');
   if (hintText) {
     if (!allReady) {
-      hintText.textContent = 'Waiting for all members to be ready...';
+      hintText.textContent = t('party.launchHintWaiting', { ready: readyCount, total: currentCount });
     } else if (currentCount < minPlayers) {
       hintText.textContent = `Need at least ${minPlayers} players (${currentCount}/${minPlayers})`;
     } else if (currentCount > maxPlayers) {
       hintText.textContent = `Too many players for this game (Max ${maxPlayers})`;
     } else {
-      hintText.textContent = 'All players ready! Host can launch the match.';
+      hintText.textContent = t('party.allReadyHost');
     }
   }
 }

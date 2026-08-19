@@ -5,6 +5,7 @@
 import { state, el, escapeHtml, promptForName, showToast } from './state.js';
 import { refreshTables } from './tables-modals.js';
 import { enterMatch } from './match-manager.js';
+import { t } from './i18n.js';
 
 /**
  * Load list of available games from the backend
@@ -74,10 +75,10 @@ export function renderGamesCatalog() {
       <div class="player-select-wrapper">
         <label for="playerCountSelect_${game.id}"><i class="bi bi-people"></i></label>
         <select class="player-count-select" id="playerCountSelect_${game.id}" onchange="selectPlayerCount('${game.id}', parseInt(this.value, 10))">
-          ${playerCounts.map(n => `<option value="${n}" ${n === selectedPlayerCount ? 'selected' : ''}>${n} Players</option>`).join('')}
+          ${playerCounts.map(n => `<option value="${n}" ${n === selectedPlayerCount ? 'selected' : ''}>${t('catalog.playersCountOption', { count: n })}</option>`).join('')}
         </select>
       </div>
-    ` : `<span class="game-players-badge"><i class="bi bi-person"></i> ${playerCounts[0]} Players</span>`;
+    ` : `<span class="game-players-badge"><i class="bi bi-person"></i> ${t('catalog.playersCount', { count: playerCounts[0] })}</span>`;
 
     let modes = game.modes || [];
     const defaultMode = (modes.find(m => m.isDefault) || modes[0] || {}).id || 'normal';
@@ -85,17 +86,22 @@ export function renderGamesCatalog() {
 
     const modeSelectorHtml = modes.length > 0 ? `
       <div class="mode-options-grid">
-        ${modes.map(mode => `
-          <label class=" ${selectedMode === mode.id ? 'active' : ''}" id="modeOpt_${mode.id}_${game.id}">
-            <div class="mode-radio-row">
-              <input type="radio" name="gameMode_${game.id}" value="${escapeHtml(mode.id)}" ${selectedMode === mode.id ? 'checked' : ''} onchange="selectGameMode('${game.id}', '${mode.id}')">
-              <span class="mode-title">${escapeHtml(mode.name)}</span>
-            </div>
-            ${mode.description ? `<p class="mode-desc">${escapeHtml(mode.description)}</p>` : ''}
-          </label>
-        `).join('')}
+        ${modes.map(mode => {
+          const modeTitle = t(`catalog.modes.${mode.id}`, { defaultValue: mode.name });
+          return `
+            <label class=" ${selectedMode === mode.id ? 'active' : ''}" id="modeOpt_${mode.id}_${game.id}">
+              <div class="mode-radio-row">
+                <input type="radio" name="gameMode_${game.id}" value="${escapeHtml(mode.id)}" ${selectedMode === mode.id ? 'checked' : ''} onchange="selectGameMode('${game.id}', '${mode.id}')">
+                <span class="mode-title">${escapeHtml(modeTitle)}</span>
+              </div>
+              ${mode.description ? `<p class="mode-desc">${escapeHtml(mode.description)}</p>` : ''}
+            </label>
+          `;
+        }).join('')}
       </div>
     ` : '';
+
+    const gameDesc = t(`catalog.descriptions.${game.id}`, { defaultValue: game.description });
 
     return `
       <div class="game-card consolidated-card" id="gameCard_${game.id}">
@@ -104,26 +110,26 @@ export function renderGamesCatalog() {
           ${playerSelectHtml}
         </div>
 
-        <p class="game-card-desc">${escapeHtml(game.description)}</p>
+        <p class="game-card-desc">${escapeHtml(gameDesc)}</p>
 
         ${modeSelectorHtml}
 
         <div class="game-card-actions">
           <button class="btn-primary w-100" onclick="handleQuickMatch('${game.id}')">
-            <i class="bi bi-lightning-charge-fill"></i> Quick Match
+            <i class="bi bi-lightning-charge-fill"></i> ${t('catalog.quickMatch')}
           </button>
         </div>
 
         <div class="card-tables-section">
           <div class="card-tables-header">
-            <span>Open Tables</span>
-            <button class="btn-refresh-sm" onclick="refreshTables('${game.id}')" title="Refresh open tables">
-              <i class="bi bi-arrow-clockwise"></i> Refresh
+            <span>${t('catalog.openTables')}</span>
+            <button class="btn-refresh-sm" onclick="refreshTables('${game.id}')" title="${t('common.refresh', { defaultValue: 'Refresh' })}">
+              <i class="bi bi-arrow-clockwise"></i> ${t('common.refresh', { defaultValue: 'Refresh' })}
             </button>
           </div>
           <div class="card-tables-list" id="tablesList_${game.id}">
             <div class="empty-tables-hint">
-              <i class="bi bi-hourglass-split"></i> Loading open tables...
+              <i class="bi bi-hourglass-split"></i> ${t('common.loading')}
             </div>
           </div>
         </div>

@@ -1,0 +1,400 @@
+/* ==========================================================================
+   PARTY LOUNGE (GROUP-FIRST FLOW)
+   ========================================================================== */
+
+.party-entry-panel {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+.party-card {
+  background: var(--navy-card);
+  border: 1px solid var(--navy-border);
+  border-radius: var(--radius-lg);
+  padding: 2rem 1.75rem;
+  text-align: center;
+  backdrop-filter: blur(10px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.party-card-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(212, 175, 55, 0.15);
+  color: var(--gold-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.8rem;
+  margin-bottom: 1rem;
+  border: 1px solid rgba(212, 175, 55, 0.3);
+}
+
+.party-card h3 {
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.3rem;
+  margin-bottom: 0.5rem;
+}
+
+.party-card p {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.4;
+  margin-bottom: 1.5rem;
+  flex: 1;
+}
+
+.party-form {
+  width: 100%;
+  text-align: left;
+}
+
+.party-form .form-group {
+  margin-bottom: 1.1rem;
+}
+
+.party-form .form-group:last-child {
+  margin-bottom: 0;
+}
+
+.join-input-group {
+  display: flex;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.join-input-group input {
+  flex: 1;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--navy-border);
+  color: var(--text-main);
+  padding: 0.65rem 1rem;
+  border-radius: var(--radius-md);
+  font-size: 1rem;
+  text-transform: uppercase;
+  font-family: monospace;
+  letter-spacing: 0.05em;
+}
+
+.join-input-group input:focus {
+  outline: none;
+  border-color: var(--gold-primary);
+  box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.25);
+}
+
+/* Active Party Lounge Room */
+.party-lounge-panel {
+  background: var(--navy-card);
+  border: 1px solid var(--navy-border-bright);
+  border-radius: var(--radius-lg);
+  padding: 1.75rem;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+}
+
+.lounge-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--navy-border);
+  padding-bottom: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.lounge-title-col {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.lounge-label {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--gold-primary);
+  display: flex;
+  align-items: center;
+  line-height: 1;
+}
+
+.room-code-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--navy-border-bright);
+  padding: 0.2rem 0.8rem;
+  border-radius: var(--radius-sm);
+  font-family: monospace;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--gold-light);
+}
+
+.btn-copy {
+  background: none;
+  border: none;
+  color: var(--gold-primary);
+  cursor: pointer;
+  font-size: 1.1rem;
+  transition: var(--transition);
+}
+
+.btn-copy:hover {
+  transform: scale(1.15);
+}
+
+.lounge-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.btn-ready,
+.btn-leave-party {
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  line-height: 1.25;
+  transition: var(--transition);
+}
+
+.btn-ready {
+  background: rgba(34, 197, 94, 0.15);
+  border: 1px solid rgba(34, 197, 94, 0.4);
+  color: #86efac;
+}
+
+.btn-ready:hover {
+  background: rgba(34, 197, 94, 0.28);
+  border-color: rgba(34, 197, 94, 0.6);
+  color: #bbf7d0;
+}
+
+.btn-ready.active-ready {
+  background: rgba(34, 197, 94, 0.85);
+  border-color: #22c55e;
+  color: #ffffff;
+}
+
+.btn-ready.active-ready:hover {
+  background: #16a34a;
+  border-color: #16a34a;
+}
+
+.btn-leave-party {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
+}
+
+.btn-leave-party:hover {
+  background: rgba(239, 68, 68, 0.3);
+  border-color: rgba(239, 68, 68, 0.6);
+  color: #fecaca;
+}
+
+.lounge-body-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+.lounge-members-card,
+.lounge-game-card {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-md);
+  padding: 1.25rem;
+}
+
+.lounge-members-card h4,
+.lounge-game-card h4 {
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.1rem;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.members-roster {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin-bottom: 1.25rem;
+  min-height: 120px;
+}
+
+.member-item {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-sm);
+  padding: 0.65rem 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.member-name-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.host-tag {
+  background: var(--gold-gradient);
+  color: #0b1522;
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+}
+
+.ready-badge {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: var(--radius-full);
+  font-weight: 600;
+}
+
+.ready-badge.is-ready {
+  background: rgba(34, 197, 94, 0.2);
+  color: #86efac;
+  border: 1px solid rgba(34, 197, 94, 0.4);
+}
+
+.ready-badge.not-ready {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fde68a;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+}
+
+.host-game-selector {
+  margin-bottom: 1rem;
+}
+
+.host-game-selector select {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--navy-border);
+  color: var(--text-main);
+  padding: 0.65rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.95rem;
+  margin-top: 0.35rem;
+}
+
+.selected-game-preview {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: var(--radius-sm);
+  padding: 0.85rem;
+  margin-bottom: 1.25rem;
+}
+
+.selected-game-preview h5 {
+  font-size: 1rem;
+  color: var(--gold-light);
+  margin-bottom: 0.25rem;
+}
+
+.selected-game-preview p {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+}
+
+.game-requirements {
+  font-size: 0.78rem;
+  color: var(--info);
+}
+
+.btn-launch-game {
+  background: var(--gold-gradient);
+  color: #0b1522;
+  border: none;
+  width: 100%;
+  padding: 0.85rem;
+  margin-bottom: 1rem;
+  border-radius: var(--radius-md);
+  font-weight: 800;
+  font-size: 1.05rem;
+  cursor: pointer;
+  box-shadow: var(--gold-shadow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: var(--transition);
+}
+
+.btn-launch-game:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.launch-hint {
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 0.5rem;
+}
+
+/* Mobile Responsive */
+@media (max-width: 860px) {
+  .party-entry-panel,
+  .lounge-body-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .party-card {
+    padding: 1.5rem 1rem;
+    border-radius: var(--radius-md);
+  }
+
+  .join-input-group input {
+    min-width: 0;
+    font-size: 0.9rem;
+    padding: 0.6rem 0.75rem;
+  }
+
+  .party-lounge-panel {
+    padding: 1.25rem 1rem;
+    border-radius: var(--radius-md);
+  }
+
+  .lounge-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.85rem;
+  }
+
+  .lounge-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+  }
+
+  .lounge-header-actions .btn-ready,
+  .lounge-header-actions .btn-leave-party {
+    flex: 1;
+    width: auto;
+  }
+}

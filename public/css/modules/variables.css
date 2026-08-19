@@ -1,0 +1,121 @@
+/* ==========================================================================
+   THE FLYING DUTCHMEN - DESIGN SYSTEM TOKENS & BASE STYLES
+   ========================================================================== */
+
+:root {
+  --navy-bg: #070d14;
+  --navy-dark: #0b1522;
+  --navy-surface: #101e30;
+  --navy-card: rgba(16, 30, 48, 0.85);
+  --navy-border: rgba(212, 175, 55, 0.22);
+  --navy-border-hover: rgba(212, 175, 55, 0.5);
+  --navy-border-bright: rgba(212, 175, 55, 0.38);
+
+  --gold-primary: #d4af37;
+  --gold-light: #f3e7a1;
+  --gold-dark: #9a7b1c;
+  --gold-gradient: linear-gradient(135deg, #f6e05e 0%, #d4af37 50%, #aa820a 100%);
+  --gold-shadow: 0 4px 18px rgba(212, 175, 55, 0.25);
+
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --text-gold: #f3e7a1;
+
+  --success: #22c55e;
+  --danger: #ef4444;
+  --warning: #f59e0b;
+  --info: #38bdf8;
+
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-full: 9999px;
+
+  --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
+  width: 100%;
+}
+
+body {
+  background-color: var(--navy-bg);
+  background-image: 
+    radial-gradient(circle at 15% 15%, rgba(26, 54, 23, 0.25) 0%, transparent 45%),
+    radial-gradient(circle at 85% 85%, rgba(212, 175, 55, 0.08) 0%, transparent 50%),
+    linear-gradient(180deg, #070d14 0%, #0d1b2a 50%, #070d14 100%);
+  background-attachment: fixed;
+  color: var(--text-main);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Helper Utilities */
+.hidden {
+  display: none !important;
+}
+
+.w-100 {
+  width: 100%;
+  justify-content: center;
+}
+
+.flex-1 {
+  flex: 1;
+}
+
+.text-gold {
+  color: var(--gold-primary);
+}
+
+.badge-count {
+  background: rgba(212, 175, 55, 0.15);
+  color: var(--gold-light);
+  font-size: 0.8rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--radius-full);
+  font-weight: 600;
+  border: 1px solid rgba(212, 175, 55, 0.3);
+}
+
+/* Toast Notifications */
+.toast-notification {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  background: var(--navy-dark);
+  border: 1px solid var(--navy-border-bright);
+  color: var(--text-main);
+  padding: 0.85rem 1.4rem;
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  animation: toastSlide 0.3s ease forwards;
+}
+
+@keyframes toastSlide {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 600px) {
+  .toast-notification {
+    left: 1rem;
+    right: 1rem;
+    bottom: 1.25rem;
+    justify-content: center;
+  }
+}

@@ -1,0 +1,293 @@
+/* ==========================================================================
+   MATCH VIEW, BOARD MOUNT & IN-GAME STYLES
+   ========================================================================== */
+
+/* In-Game Clean Screen Mode: Hide Navbar & Hero Header */
+body.in-game #tfd-navbar,
+body.in-game .hero-header {
+  display: none !important;
+}
+
+/* Active Match Resume Banner */
+.active-match-banner {
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.15) 0%, rgba(16, 30, 48, 0.95) 100%);
+  border: 1px solid var(--gold-primary);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 1.15rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+  box-shadow: 0 4px 20px rgba(212, 175, 55, 0.2);
+  animation: pulseGoldBorder 2.5s infinite ease-in-out;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+@keyframes pulseGoldBorder {
+  0%, 100% { border-color: rgba(212, 175, 55, 0.4); box-shadow: 0 4px 20px rgba(212, 175, 55, 0.15); }
+  50% { border-color: var(--gold-primary); box-shadow: 0 4px 25px rgba(212, 175, 55, 0.35); }
+}
+
+.active-match-info {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-family: 'Outfit', sans-serif;
+  font-size: clamp(0.88rem, 2.8vw, 1rem);
+  color: var(--gold-light);
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.active-match-pulse {
+  width: 10px;
+  height: 10px;
+  min-width: 10px;
+  min-height: 10px;
+  background: #22c55e;
+  border-radius: 50%;
+  box-shadow: 0 0 10px #22c55e;
+  animation: blink 1.2s infinite ease-in-out;
+  flex-shrink: 0;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+}
+
+.active-match-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-shrink: 0;
+}
+
+.active-match-actions button,
+.active-banner-btn {
+  min-width: 105px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  box-sizing: border-box;
+}
+
+/* Full-Screen Match Board View */
+.match-board-view {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
+  z-index: 5000;
+  background: var(--navy-bg);
+  background-image: 
+    radial-gradient(circle at 50% 25%, rgba(212, 175, 55, 0.12) 0%, transparent 65%),
+    radial-gradient(circle at 10% 90%, rgba(45, 80, 22, 0.22) 0%, transparent 55%),
+    linear-gradient(180deg, #070d14 0%, #0d1b2a 50%, #070d14 100%);
+  display: flex;
+  flex-direction: column;
+  padding: clamp(0.4rem, 1.5vw, 0.75rem) clamp(0.35rem, 1.5vw, 1rem) 1rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+.match-top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(212, 175, 55, 0.22);
+  flex-wrap: wrap;
+}
+
+.match-nav-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.btn-pill {
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 0.35rem 0.9rem;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.38rem;
+  line-height: 1.2;
+  transition: var(--transition);
+  border: 1px solid transparent;
+}
+
+.btn-to-lobby {
+  background: rgba(16, 30, 48, 0.9);
+  color: var(--text-muted);
+  border: 1px solid var(--navy-border-bright);
+}
+
+.btn-to-lobby:hover {
+  background: rgba(22, 40, 64, 0.95);
+  color: var(--gold-light);
+  border-color: var(--gold-primary);
+  transform: translateY(-1px);
+}
+
+.btn-play-again {
+  background: var(--gold-gradient);
+  color: #0b1522;
+  border: 1px solid rgba(212, 175, 55, 0.6);
+  box-shadow: 0 2px 10px rgba(212, 175, 55, 0.25);
+}
+
+.btn-play-again:hover {
+  filter: brightness(1.15);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(212, 175, 55, 0.4);
+}
+
+.btn-play-again.voted {
+  background: rgba(34, 197, 94, 0.2);
+  color: #86efac;
+  border: 1px solid rgba(34, 197, 94, 0.5);
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.2);
+}
+
+.match-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.15rem;
+  margin-top: 0;
+}
+
+.match-game-title {
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--gold-light);
+  line-height: 1.2;
+}
+
+.match-footer-bar {
+  margin-top: auto;
+  padding: 0.75rem 0 0.25rem;
+  text-align: center;
+  width: 100%;
+}
+
+.match-id-text,
+.match-id-badge {
+  font-family: monospace;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  opacity: 0.55;
+  letter-spacing: 0.04em;
+  background: none;
+  border: none;
+  padding: 0;
+  user-select: text;
+}
+
+.btn-gameover-playagain {
+  background: var(--gold-gradient);
+  color: #0b1522;
+  border: none;
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 0.35rem 0.9rem;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  transition: var(--transition);
+  margin-left: 0.75rem;
+}
+
+.btn-gameover-playagain:hover {
+  filter: brightness(1.15);
+  transform: translateY(-1px);
+}
+
+.gameover-banner-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.match-player-info {
+  display: flex;
+  align-items: center;
+}
+
+.board-mount-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  padding-top: 0.5rem;
+}
+
+/* Mobile Responsive */
+@media (max-width: 580px) {
+  .active-match-banner {
+    padding: 0.65rem 0.85rem;
+    gap: 0.6rem;
+  }
+
+  .active-match-info {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .active-match-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .active-match-actions button {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .match-board-view {
+    padding: 0.5rem 0.5rem 1rem;
+    border-radius: 0;
+  }
+
+  .match-top-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.85rem;
+  }
+
+  .btn-back-lobby {
+    align-self: flex-start;
+  }
+}

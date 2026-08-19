@@ -65,6 +65,78 @@ router.get('/api/games', (ctx) => {
   };
 });
 
+// Helper function to wipe orphaned and stale matches
+async function cleanOrphanedMatches() {
+  if (!server.db) return [];
+  const wiped = [];
+  try {
+    const matchIds = await server.db.listMatches();
+    const now = Date.now();
+    for (const matchId of matchIds) {
+      const { metadata } = await server.db.fetch(matchId, { metadata: true });
+      if (!metadata) {
+        await server.db.wipe(matchId);
+        wiped.push(matchId);
+        continue;
+      }
+      const players = Object.values(metadata.players || {});
+      const namedPlayers = players.filter(p => p && p.name);
+      const connectedPlayers = players.filter(p => p && p.isConnected);
+      const age = now - (metadata.updatedAt || metadata.createdAt || 0);
+
+      // 1. Matches with 0 named players
+      if (namedPlayers.length === 0) {
+        console.log(`[CLEANUP] Wiping empty match ${matchId} (${metadata.gameName})`);
+        await server.db.wipe(matchId);
+        wiped.push(matchId);
+        continue;
+      }
+
+      // 2. Matches where all players are disconnected (abandoned) and inactive
+      if (connectedPlayers.length === 0 && age > 5 * 60 * 1000) {
+        console.log(`[CLEANUP] Wiping abandoned match ${matchId} (${metadata.gameName}, age: ${Math.round(age / 60000)}m)`);
+        await server.db.wipe(matchId);
+        wiped.push(matchId);
+        continue;
+      }
+
+      // 3. Completed matches older than 15 minutes
+      if (metadata.gameover && age > 15 * 60 * 1000) {
+        console.log(`[CLEANUP] Wiping completed match ${matchId} (${metadata.gameName})`);
+        await server.db.wipe(matchId);
+        wiped.push(matchId);
+        continue;
+      }
+    }
+  } catch (err) {
+    console.error('[CLEANUP] Error cleaning matches:', err.message);
+  }
+  return wiped;
+}
+
+// API: Manual / Client Match Wipe
+router.delete('/api/matches/:matchId', async (ctx) => {
+  const { matchId } = ctx.params;
+  try {
+    if (server.db) {
+      await server.db.wipe(matchId);
+    }
+    ctx.body = { success: true, wiped: matchId };
+  } catch (err) {
+    ctx.status = 500;
+    ctx.body = { error: err.message };
+  }
+});
+
+// API: Trigger Stale Match Cleanup
+router.post('/api/matches/cleanup', async (ctx) => {
+  const wiped = await cleanOrphanedMatches();
+  ctx.body = { success: true, count: wiped.length, wiped };
+});
+
+// Run cleanup periodically every 3 minutes
+setInterval(cleanOrphanedMatches, 3 * 60 * 1000);
+
 // API: Group-First Matchmaking Endpoints
 router.post('/api/groups/create', (ctx) => {
   const { hostName, hostUserId, hostAvatar } = ctx.request.body || {};

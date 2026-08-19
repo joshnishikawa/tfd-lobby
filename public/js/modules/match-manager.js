@@ -46,12 +46,8 @@ export function enterMatch(matchConfig) {
     viewBoard.classList.remove('hidden');
   }
 
-  const game = state.games.find(g => g.id === matchConfig.gameName);
-  const titleEl = el('boardGameTitle');
-  const idEl = el('boardMatchId');
   const matchIdStr = matchConfig.matchID || matchConfig.matchId || '';
-  if (titleEl) titleEl.textContent = game ? game.name : matchConfig.gameName;
-  if (idEl) idEl.textContent = `Match #${matchIdStr ? matchIdStr.substring(0, 8) : '000'}`;
+  console.log(`[Match] Active match loaded: game="${matchConfig.gameName}", matchID="${matchIdStr}", playerID="${matchConfig.playerID}"`);
 
   // Sync match party & update Play Again button
   syncMatchParty(matchConfig);
@@ -70,6 +66,14 @@ export function exitToLobby() {
     try { state.boardgameClient.stop(); } catch (e) {}
     state.boardgameClient = null;
   }
+  if (window.__currentTTTSocket) {
+    try { window.__currentTTTSocket.disconnect(); } catch (e) {}
+    window.__currentTTTSocket = null;
+  }
+  if (window.__currentTTTPoll) {
+    clearInterval(window.__currentTTTPoll);
+    window.__currentTTTPoll = null;
+  }
   if (state.currentParty && state.currentParty.code && state.currentParty.code.startsWith('M-')) {
     if (typeof leaveGroupHandler === 'function') {
       leaveGroupHandler();
@@ -84,6 +88,9 @@ export function exitToLobby() {
     switchFlowHandler(targetFlow);
   }
   checkActiveMatchBanner();
+  if (typeof window.refreshTables === 'function') {
+    window.refreshTables();
+  }
 }
 
 /**
@@ -148,12 +155,89 @@ export function resumeActiveMatch() {
 /**
  * Abandon and clear active match
  */
-export function abandonActiveMatch() {
+export async function abandonActiveMatch() {
+  let activeMatch = state.activeMatch;
+  if (!activeMatch) {
+    try {
+      const saved = localStorage.getItem('tfd_active_match');
+      if (saved) activeMatch = JSON.parse(saved);
+    } catch (e) {}
+  }
+
+  if (activeMatch) {
+    const gameName = activeMatch.gameName || activeMatch.gameId;
+    const matchID = activeMatch.matchID || activeMatch.matchId;
+    const playerID = activeMatch.playerID !== undefined ? String(activeMatch.playerID) : null;
+    const credentials = activeMatch.credentials;
+
+    // Send leave request to boardgame.io server
+    if (gameName && matchID && playerID !== null && credentials) {
+      try {
+        await fetch(`/games/${gameName}/${matchID}/leave`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            playerID,
+            credentials
+          })
+        });
+      } catch (err) {
+        console.warn('[MATCH-ABANDON] Failed to send leave request to server:', err.message);
+      }
+    }
+  }
+
+  // Stop client / socket / polling
+  if (state.boardgameClient) {
+    try { state.boardgameClient.stop(); } catch (e) {}
+    state.boardgameClient = null;
+  }
+  if (window.__currentTTTSocket) {
+    try { window.__currentTTTSocket.disconnect(); } catch (e) {}
+    window.__currentTTTSocket = null;
+  }
+  if (window.__currentTTTPoll) {
+    clearInterval(window.__currentTTTPoll);
+    window.__currentTTTPoll = null;
+  }
+
+  // Leave match party room if currently in a match-synced group
+  if (state.currentParty && state.currentParty.code && state.currentParty.code.startsWith('M-')) {
+    try {
+      const code = state.currentParty.code;
+      const memberId = state.currentMember ? state.currentMember.id : null;
+      if (code && memberId) {
+        await fetch(`/api/groups/${code}/leave`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ memberId })
+        });
+      }
+    } catch (e) {}
+    state.currentParty = null;
+    state.currentMember = null;
+    try { sessionStorage.removeItem('tfd_party_code'); } catch (e) {}
+  }
+
   state.activeMatch = null;
+  state.isMatchOver = false;
   try {
     localStorage.removeItem('tfd_active_match');
   } catch (e) {}
+
+  document.body.classList.remove('in-game');
+  const viewBoard = el('viewMatchBoard');
+  if (viewBoard) viewBoard.classList.add('hidden');
+
+  const targetFlow = state.currentParty && !state.currentParty.code.startsWith('M-') ? 'group' : (state.activeFlow || 'game');
+  if (typeof switchFlowHandler === 'function') {
+    switchFlowHandler(targetFlow);
+  }
+
   checkActiveMatchBanner();
+  if (typeof window.refreshTables === 'function') {
+    window.refreshTables();
+  }
   showToast('Left active match.', 'info');
 }
 

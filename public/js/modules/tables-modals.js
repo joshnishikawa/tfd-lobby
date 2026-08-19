@@ -3,7 +3,7 @@
  */
 
 import { state, el, escapeHtml, showToast } from './state.js';
-import { enterMatch } from './match-manager.js';
+import { enterMatch, abandonActiveMatch, resumeActiveMatch } from './match-manager.js';
 import { t } from './i18n.js';
 
 // Table Modal Selection State
@@ -18,6 +18,15 @@ let currentModalMode = null;
 export async function refreshTables(targetGameId) {
   const gamesToRefresh = targetGameId ? [targetGameId] : state.games.map(g => g.id);
 
+  let activeMatch = state.activeMatch;
+  if (!activeMatch) {
+    try {
+      const saved = localStorage.getItem('tfd_active_match');
+      if (saved) activeMatch = JSON.parse(saved);
+    } catch (e) {}
+  }
+  const activeMatchId = activeMatch ? (activeMatch.matchID || activeMatch.matchId) : null;
+
   for (const gameId of gamesToRefresh) {
     const list = el(`tablesList_${gameId}`);
     if (!list) continue;
@@ -31,11 +40,13 @@ export async function refreshTables(targetGameId) {
       const data = await res.json();
       const matches = data.matches || [];
 
-      // Filter to open (joinable) tables
+      // Filter to open (joinable) tables (must have at least 1 player waiting, open seats, not game over, not abandoned)
       const openMatches = matches.filter(m => {
-        const joinedCount = (m.players || []).filter(p => p.name).length;
+        const joinedPlayers = (m.players || []).filter(p => p && p.name);
         const totalSeats = (m.players || []).length;
-        return joinedCount < totalSeats && !m.gameover;
+        const hasConnectedPlayer = (m.players || []).some(p => p && p.name && p.isConnected);
+        const isAbandoned = joinedPlayers.length > 0 && !hasConnectedPlayer;
+        return joinedPlayers.length > 0 && joinedPlayers.length < totalSeats && !m.gameover && !isAbandoned;
       });
 
       if (openMatches.length === 0) {
@@ -53,18 +64,27 @@ export async function refreshTables(targetGameId) {
         const modeObj = game && game.modes ? game.modes.find(md => md.id === mode) : null;
         const modeLabel = modeObj ? t(`catalog.modes.${modeObj.id}`, { defaultValue: modeObj.name }) : (mode ? (mode.charAt(0).toUpperCase() + mode.slice(1)) : '');
         const modeBadgeHtml = modeLabel ? `<span class="table-mode-badge ${escapeHtml(mode)}">${escapeHtml(modeLabel)}</span>` : '';
-        const joinedCount = (m.players || []).filter(p => p.name).length;
+        const joinedCount = (m.players || []).filter(p => p && p.name).length;
         const totalSeats = (m.players || []).length;
+        const isMyMatch = activeMatchId && m.matchID === activeMatchId;
+
+        const actionButtonHtml = isMyMatch ? `
+          <button class="btn-gold btn-sm" onclick="resumeActiveMatch()" title="${escapeHtml(t('match.resumeMatch'))}">
+            <i class="bi bi-play-fill"></i> ${escapeHtml(t('match.resumeMatch'))}
+          </button>
+        ` : `
+          <button class="btn-gold btn-sm" onclick="openJoinTableModal('${gameId}', '${m.matchID}', ${JSON.stringify(m.players).replace(/"/g, '&quot;')}, '${escapeHtml(mode)}')">
+            <i class="bi bi-door-open"></i> ${t('tables.joinBtn')}
+          </button>
+        `;
 
         return `
-          <div class="table-row">
+          <div class="table-row ${isMyMatch ? 'my-active-table' : ''}">
             <div class="table-info-left">
               ${modeBadgeHtml}
               <span class="table-seats-badge"><i class="bi bi-people"></i> ${t('tables.playersRatio', { current: joinedCount, total: totalSeats })}</span>
             </div>
-            <button class="btn-gold btn-sm" onclick="openJoinTableModal('${gameId}', '${m.matchID}', ${JSON.stringify(m.players).replace(/"/g, '&quot;')}, '${escapeHtml(mode)}')">
-              <i class="bi bi-door-open"></i> ${t('tables.joinBtn')}
-            </button>
+            ${actionButtonHtml}
           </div>
         `;
       }).join('');
@@ -147,6 +167,11 @@ export async function submitCreateTable() {
   const selectedMode = (state.selectedGameMode && state.selectedGameMode[gameId]) || (game && game.modes && game.modes[0] ? game.modes[0].id : 'normal');
 
   try {
+    // If user already has an active match, abandon it first so it is not orphaned
+    if (state.activeMatch) {
+      await abandonActiveMatch();
+    }
+
     const createRes = await fetch(`/games/${gameId}/create`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -188,12 +213,33 @@ export async function submitCreateTable() {
  * @param {string} mode 
  */
 export function openJoinTableModal(gameId, matchID, players, mode) {
+  let activeMatch = state.activeMatch;
+  if (!activeMatch) {
+    try {
+      const saved = localStorage.getItem('tfd_active_match');
+      if (saved) activeMatch = JSON.parse(saved);
+    } catch (e) {}
+  }
+
+  // If this table is already the player's active match, resume it directly
+  if (activeMatch && (activeMatch.matchID === matchID || activeMatch.matchId === matchID)) {
+    showToast('Resuming your active match...', 'info');
+    enterMatch(activeMatch);
+    return;
+  }
+
+  const currentUsername = state.currentUser ? state.currentUser.username : '';
+  if (currentUsername && (players || []).some(p => p && p.name === currentUsername)) {
+    showToast('You are already registered in this match.', 'warning');
+    return;
+  }
+
   currentModalGameId = gameId;
   currentModalMatchID = matchID;
   currentModalMode = mode || 'normal';
   const modal = el('joinTableModal');
   const infoEl = el('joinTableInfo');
-  const joinedCount = (players || []).filter(p => p.name).length;
+  const joinedCount = (players || []).filter(p => p && p.name).length;
   const totalSeats = (players || []).length;
   if (infoEl) infoEl.textContent = t('tables.joiningTableInfo', { id: matchID.substring(0, 8), current: joinedCount, total: totalSeats });
 
@@ -201,7 +247,7 @@ export function openJoinTableModal(gameId, matchID, players, mode) {
   if (seatSelect) {
     seatSelect.innerHTML = '';
     (players || []).forEach((p, idx) => {
-      if (!p.name) {
+      if (!p || !p.name) {
         const opt = document.createElement('option');
         opt.value = idx;
         opt.textContent = t('tables.seatOpen', { seat: idx + 1 });
@@ -236,6 +282,11 @@ export async function submitJoinTable() {
   const playerName = el('joinPlayerName').value.trim() || (state.currentUser ? state.currentUser.username : `Player ${parseInt(playerID, 10) + 1}`);
 
   try {
+    // If user has a previous active match that is different, abandon it first
+    if (state.activeMatch && (state.activeMatch.matchID !== matchID && state.activeMatch.matchId !== matchID)) {
+      await abandonActiveMatch();
+    }
+
     const res = await fetch(`/games/${gameId}/${matchID}/join`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

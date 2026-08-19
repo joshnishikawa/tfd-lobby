@@ -4,7 +4,7 @@
 
 import { state, el, escapeHtml, promptForName, showToast } from './state.js';
 import { refreshTables } from './tables-modals.js';
-import { enterMatch } from './match-manager.js';
+import { enterMatch, abandonActiveMatch } from './match-manager.js';
 import { t } from './i18n.js';
 
 /**
@@ -174,6 +174,26 @@ export async function handleQuickMatch(targetGameId) {
   const modeObj = modes.find(m => m.id === selectedMode);
   const modeLabel = modeObj ? modeObj.name : selectedMode;
 
+  // 1. If player already has an active match for this game, resume it directly!
+  let activeMatch = state.activeMatch;
+  if (!activeMatch) {
+    try {
+      const saved = localStorage.getItem('tfd_active_match');
+      if (saved) activeMatch = JSON.parse(saved);
+    } catch (e) {}
+  }
+
+  if (activeMatch && activeMatch.gameName === game.id && !state.isMatchOver) {
+    showToast(`Resuming your active ${game.name} match...`, 'info');
+    enterMatch(activeMatch);
+    return;
+  }
+
+  // If user had an active match for a different game, abandon it cleanly first
+  if (activeMatch && (activeMatch.matchID || activeMatch.matchId)) {
+    await abandonActiveMatch();
+  }
+
   showToast(`Searching for open ${game.name} match (${modeLabel}, ${numPlayers}P)...`, 'info');
 
   try {
@@ -190,6 +210,13 @@ export async function handleQuickMatch(targetGameId) {
 
       const totalSeats = (m.players || []).length;
       if (totalSeats !== numPlayers) continue;
+
+      // Don't join a table where this player is already registered
+      if ((m.players || []).some(p => p && p.name === playerName)) continue;
+
+      // Don't join a dead table where all existing players are disconnected
+      const hasConnectedPlayer = (m.players || []).some(p => p && p.name && p.isConnected);
+      if (!hasConnectedPlayer) continue;
 
       const openSlot = (m.players || []).findIndex(p => !p.name);
       if (openSlot !== -1) {

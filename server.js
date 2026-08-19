@@ -1,4 +1,5 @@
 require('dotenv').config();
+const fs = require('fs');
 const path = require('path');
 const { Server, Origins } = require('boardgame.io/server');
 const Router = require('@koa/router');
@@ -174,11 +175,41 @@ router.post('/api/groups/:code/play-again', async (ctx) => {
   }
 });
 
-router.get('/game_modules/:gameId/:filename', async (ctx) => {
-  const { gameId, filename } = ctx.params;
-  const gameDir = path.join(__dirname, 'game_modules', gameId);
-  if (require('fs').existsSync(path.join(gameDir, filename))) {
-    await send(ctx, filename, { root: gameDir });
+// Dynamic static asset serving for self-contained game modules (client.js, style.css, images, etc.)
+router.get('/game_modules/:gameId/(.*)', async (ctx) => {
+  const { gameId } = ctx.params;
+  const subPath = ctx.params[0] || '';
+  if (!subPath) return;
+
+  const modulesDir = path.join(__dirname, 'game_modules');
+  let gameDir = path.join(modulesDir, gameId);
+
+  // If exact folder does not exist, check case-insensitive match (e.g. 'kred' -> 'KRED')
+  if (!fs.existsSync(gameDir)) {
+    if (fs.existsSync(modulesDir)) {
+      const entries = fs.readdirSync(modulesDir);
+      const match = entries.find(e => e.toLowerCase() === gameId.toLowerCase());
+      if (match) {
+        gameDir = path.join(modulesDir, match);
+      }
+    }
+  }
+
+  if (!fs.existsSync(gameDir)) return;
+
+  let targetPath = subPath;
+  const directPath = path.join(gameDir, targetPath);
+
+  // Check if file exists directly or inside gameDir/public/
+  if (!fs.existsSync(directPath)) {
+    const publicPath = path.join(gameDir, 'public', targetPath);
+    if (fs.existsSync(publicPath)) {
+      targetPath = path.join('public', targetPath);
+    }
+  }
+
+  if (fs.existsSync(path.join(gameDir, targetPath))) {
+    await send(ctx, targetPath, { root: gameDir });
   }
 });
 

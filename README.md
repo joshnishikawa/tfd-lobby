@@ -92,20 +92,53 @@ The lobby provides two distinct matchmaking pathways for players:
 
 ## Game Module Specification (`game_modules/`)
 
-Every game in `game_modules/` is a self-contained directory containing four standard files.
+### Core Rule: 100% Self-Contained Architecture
+> **Above all, games must be completely self-contained.**
+> 
+> - Every game module must reside entirely within its own folder: `game_modules/<game-id>/`.
+> - **Never** place game-specific images, stylesheets, sounds, or data into the lobby's `public/` directory.
+> - The lobby server dynamically routes and serves all static assets from within each game's folder at `/game_modules/<game-id>/[path]`.
+> - Adding a new game requires zero edits or manual symlinks in the lobby's static directories.
 
 ### Directory Structure
 
 ```
 game_modules/
 └── <game-id>/
-    ├── game.json    # [Required] Manifest and metadata
-    ├── game.js      # [Required] Server-side boardgame.io Game object
-    ├── client.js    # [Required] Browser UI mount function & Socket listener
-    └── style.css    # [Recommended] Board UI styling
+    ├── game.json       # [Required] Manifest and metadata
+    ├── game.js         # [Required] Server-side boardgame.io Game object
+    ├── client.js       # [Required] Browser UI mount function & Socket listener
+    ├── style.css       # [Recommended] Board UI styling
+    └── images/         # [Optional] Self-contained game images, SVGs, textures
+        ├── logo.png
+        └── board.svg
 ```
 
-> **Note:** `<game-id>` must match the `id` field in `game.json` (lowercase, alphanumeric, and hyphens only; e.g. `tic-tac-toe`, `connect-four`, `chess`).
+> **Note:** `<game-id>` must match the `id` field in `game.json` (lowercase, alphanumeric, and hyphens only; e.g. `tic-tac-toe`, `kred`, `connect-four`, `chess`).
+
+### 0. Static Asset Loading Convention
+
+Game modules can store any static assets (images, icons, sound effects, fonts) inside their own directory (e.g., `game_modules/<game-id>/images/` or `game_modules/<game-id>/public/images/`).
+
+The lobby server automatically serves these assets at:
+```
+/game_modules/<game-id>/<asset-path>
+```
+
+#### Example Usage in Game Client:
+```javascript
+// In client.js or UI components:
+const LOGO_URL = '/game_modules/kred/images/logo.png';
+const TILE_URL = (id) => `/game_modules/kred/images/tiles/${id}.svg`;
+```
+
+#### Example Usage in CSS:
+```css
+/* In style.css: */
+.kred-board {
+  background-image: url('/game_modules/kred/images/board_background.png');
+}
+```
 
 ---
 
@@ -386,7 +419,7 @@ Custom styles loaded specifically when a match of this game begins.
 - `POST /api/groups/:code/play-again` — Vote to Play Again; auto-provisions a new match when all members agree.
 
 ### Static Assets
-- `GET /game_modules/:gameId/:filename` — Serves module assets (`client.js`, `style.css`, `game.json`).
+- `GET /game_modules/:gameId/*` — Dynamically serves any game module asset (`client.js`, `style.css`, `game.json`, images, SVGs, audio, etc.) from `game_modules/<gameId>/`.
 
 ---
 

@@ -2,7 +2,6 @@
  * The Flying Dutchmen - Game Lobby Master Stylesheet
  * 
  * Modular architecture for easy maintenance:
- * - tfd-nav.css: Shared navigation bar styles
  * - modules/variables.css: Design system tokens, variables, resets, utility classes, and toasts
  * - modules/layout.css: Main layout wrapper, hero headers, flow switcher tabs, and view transitions
  * - modules/games.css: Game catalog grid, consolidated cards, player selectors, mode selectors, open tables list
@@ -11,7 +10,6 @@
  * - modules/modals.css: Create table modal, join table modal, form inputs, dialogs
  */
 
-@import "tfd-nav.css";
 @import "modules/variables.css";
 @import "modules/layout.css";
 @import "modules/games.css";

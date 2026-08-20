@@ -194,9 +194,9 @@ router.post('/api/groups/:code/ready', (ctx) => {
 });
 
 router.post('/api/groups/:code/launch', (ctx) => {
-  const { memberId, matchId } = ctx.request.body || {};
+  const { memberId, matchId, isPlayAgain } = ctx.request.body || {};
   try {
-    const group = groupManager.launchGame(ctx.params.code, memberId, matchId);
+    const group = groupManager.launchGame(ctx.params.code, memberId, matchId, Boolean(isPlayAgain));
     ctx.body = { group };
   } catch (err) {
     ctx.status = 400;

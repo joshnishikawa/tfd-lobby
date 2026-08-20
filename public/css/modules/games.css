@@ -30,16 +30,9 @@
   left: 0;
   right: 0;
   height: 3px;
-  background: linear-gradient(90deg, #d4af37 0%, #f6e05e 50%, #d4af37 100%);
-  opacity: 0.8;
-  transition: var(--transition);
+  background: var(--gold-gradient);
+  opacity: 0.9;
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-}
-
-.game-card:hover {
-  transform: translateY(-2px);
-  border-color: var(--navy-border-hover);
-  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.6);
 }
 
 .game-card-top {
@@ -187,8 +180,8 @@
 
 /* Card Embedded Open Tables Section */
 .card-tables-section {
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(212, 175, 55, 0.18);
+  background: var(--color-surface-muted, var(--navy-surface, rgba(0, 0, 0, 0.2)));
+  border: 1px solid var(--navy-border);
   border-radius: var(--radius-md);
   padding: clamp(0.75rem, 2vw, 1rem);
   margin-bottom: 1.25rem;
@@ -244,8 +237,8 @@
 }
 
 .card-tables-section .table-row {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(212, 175, 55, 0.2);
+  background: var(--navy-card, var(--color-surface, rgba(255, 255, 255, 0.03)));
+  border: 1px solid var(--navy-border);
   border-radius: var(--radius-sm);
   padding: 0.55rem 0.75rem;
   display: flex;
@@ -259,7 +252,7 @@
 }
 
 .card-tables-section .table-row:hover {
-  background: rgba(212, 175, 55, 0.06);
+  background: var(--navy-surface, var(--color-surface-muted));
   border-color: var(--navy-border-hover);
 }
 
@@ -275,10 +268,10 @@
 .card-tables-section .table-id-badge {
   font-family: monospace;
   font-size: 0.82rem;
-  background: rgba(0, 0, 0, 0.35);
+  background: var(--color-surface-muted, rgba(0, 0, 0, 0.25));
   padding: 0.18rem 0.45rem;
   border-radius: var(--radius-sm);
-  border: 1px solid rgba(212, 175, 55, 0.28);
+  border: 1px solid var(--navy-border);
   color: var(--gold-light);
 }
 
@@ -361,7 +354,7 @@
 /* Primary, Secondary, and Gold Buttons */
 .btn-primary {
   background: var(--gold-gradient);
-  color: #0b1522;
+  color: var(--color-primary-contrast, #ffffff);
   border: none;
   padding: 0.75rem 1.5rem;
   border-radius: var(--radius-md);
@@ -377,7 +370,7 @@
 
 .btn-primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 22px rgba(212, 175, 55, 0.45);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.45);
 }
 
 .btn-secondary {
@@ -402,7 +395,7 @@
 
 .btn-gold {
   background: var(--gold-gradient);
-  color: #0b1522;
+  color: var(--color-primary-contrast, #ffffff);
   border: none;
   padding: 0.65rem 1.2rem;
   border-radius: var(--radius-md);

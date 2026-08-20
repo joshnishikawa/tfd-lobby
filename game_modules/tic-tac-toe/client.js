@@ -86,11 +86,11 @@ function mountTicTacToeClient(container, config) {
     });
 
     socket.on('disconnect', () => {
-      const banner = document.getElementById('tttStatusBanner');
+      const banner = container.querySelector('#tttStatusBanner');
       if (banner) banner.innerHTML = `<i class="bi bi-exclamation-triangle-fill text-warning"></i> Disconnected. Reconnecting...`;
     });
   } else {
-    const banner = document.getElementById('tttStatusBanner');
+    const banner = container.querySelector('#tttStatusBanner');
     if (banner) banner.innerHTML = `<i class="bi bi-exclamation-circle text-danger"></i> Socket client unavailable`;
   }
 
@@ -158,7 +158,7 @@ function mountTicTacToeClient(container, config) {
     if (!gameState) return;
     const { G, ctx } = gameState;
     const mode = G.mode || 'normal';
-    const gridMount = document.getElementById('tttGridMount');
+    const gridMount = container.querySelector('#tttGridMount');
     if (!gridMount) return;
 
     const playerList = Array.isArray(mData) ? mData : (mData && mData.players ? (Array.isArray(mData.players) ? mData.players : Object.values(mData.players)) : []);
@@ -221,7 +221,7 @@ function mountTicTacToeClient(container, config) {
     }
 
     // Render Banner Status
-    const banner = document.getElementById('tttStatusBanner');
+    const banner = container.querySelector('#tttStatusBanner');
     if (!banner) return;
 
     const gt = (k, opts) => (window.lobbyI18n && typeof window.lobbyI18n.t === 'function') ? window.lobbyI18n.t(k, opts) : (opts && opts.defaultValue ? opts.defaultValue : k);

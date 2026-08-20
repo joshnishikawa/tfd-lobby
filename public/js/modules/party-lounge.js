@@ -370,22 +370,25 @@ export async function handleLaunchPartyGame() {
     const createData = await createRes.json();
     const matchId = createData.matchID;
 
-    // 2. Join host into slot 0 FIRST
+    // 2. Join host into slot (alternating if rematching from a 2-player match)
+    const prevSeat = (state.activeMatch && state.activeMatch.playerID !== undefined) ? String(state.activeMatch.playerID) : null;
+    const hostSeat = (prevSeat !== null && numPlayers === 2) ? (prevSeat === '0' ? '1' : '0') : '0';
+
     const joinRes = await fetch(`/games/${gameId}/${matchId}/join`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        playerID: '0',
+        playerID: hostSeat,
         playerName: state.currentMember.name
       })
     });
     const joinData = await joinRes.json();
 
-    // 3. Immediately enter match so background poller doesn't race to claim slot 0
+    // 3. Immediately enter match so background poller doesn't race
     enterMatch({
       gameName: gameId,
       matchID: matchId,
-      playerID: '0',
+      playerID: hostSeat,
       credentials: joinData.playerCredentials,
       playerName: state.currentMember.name,
       mode: (setupData && setupData.mode) || ''

@@ -37,11 +37,11 @@
 /* Flow Switcher Tabs */
 .flow-tabs {
   display: inline-flex;
-  background: rgba(16, 30, 48, 0.9);
+  background: var(--navy-card, var(--color-surface, rgba(16, 30, 48, 0.9)));
   padding: 0.4rem;
   border-radius: var(--radius-full);
   border: 1px solid var(--navy-border);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
   gap: 0.4rem;
 }
 

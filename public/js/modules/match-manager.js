@@ -251,19 +251,52 @@ export function mountGameClient(matchConfig) {
   if (!container || !gameName) return;
   container.innerHTML = '';
 
-  // Dynamically load game stylesheet if not already present
-  const styleId = `style_game_${gameName}`;
-  if (!document.getElementById(styleId)) {
-    const link = document.createElement('link');
-    link.id = styleId;
-    link.rel = 'stylesheet';
-    link.href = `/game_modules/${gameName}/style.css`;
-    document.head.appendChild(link);
-  }
+  // Create isolated Shadow DOM host
+  const shadowHost = document.createElement('div');
+  shadowHost.className = 'game-shadow-host';
+  shadowHost.style.cssText = 'width: 100%; height: 100%; display: flex; flex-direction: column;';
+  container.appendChild(shadowHost);
+
+  const shadowRoot = shadowHost.attachShadow({ mode: 'open' });
+
+  // 1. Reset all inherited CSS and theme properties from parent document
+  const resetStyle = document.createElement('style');
+  resetStyle.textContent = `
+    :host {
+      all: initial;
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      height: 100%;
+      box-sizing: border-box;
+    }
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+  `;
+  shadowRoot.appendChild(resetStyle);
+
+  // 2. Load Bootstrap Icons inside the Shadow DOM for game icon support
+  const iconStyle = document.createElement('link');
+  iconStyle.rel = 'stylesheet';
+  iconStyle.href = 'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css';
+  shadowRoot.appendChild(iconStyle);
+
+  // 3. Load game-specific stylesheet strictly inside the Shadow DOM
+  const gameStyle = document.createElement('link');
+  gameStyle.rel = 'stylesheet';
+  gameStyle.href = `/game_modules/${gameName}/style.css`;
+  shadowRoot.appendChild(gameStyle);
+
+  // 4. Create internal mount point for the game client
+  const mountRoot = document.createElement('div');
+  mountRoot.className = 'game-mount-root';
+  mountRoot.style.cssText = 'width: 100%; height: 100%; display: flex; flex-direction: column;';
+  shadowRoot.appendChild(mountRoot);
 
   const doMount = () => {
     if (window.GameModules && window.GameModules[gameName] && typeof window.GameModules[gameName].mountClient === 'function') {
-      window.GameModules[gameName].mountClient(container, matchConfig);
+      window.GameModules[gameName].mountClient(mountRoot, matchConfig);
       return true;
     }
     return false;
@@ -280,7 +313,7 @@ export function mountGameClient(matchConfig) {
     }
     const onScriptLoaded = () => {
       if (!doMount()) {
-        renderDefaultGamePlaceholder(container, matchConfig);
+        renderDefaultGamePlaceholder(mountRoot, matchConfig);
       }
     };
     script.onload = onScriptLoaded;
@@ -415,7 +448,8 @@ export async function handlePlayAgain() {
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
                     memberId: state.currentMember.id,
-                    matchId: createData.matchID
+                    matchId: createData.matchID,
+                    isPlayAgain: true
                   })
                 });
                 const launchData = launchRes.ok ? await launchRes.json() : null;
@@ -451,7 +485,7 @@ export async function handlePlayAgain() {
 }
 
 /**
- * Direct rematch creation fallback
+ * Direct rematch creation fallback (alternates first-player turn for 2 players)
  * @param {object} active 
  */
 export async function createDirectRematch(active) {
@@ -459,6 +493,8 @@ export async function createDirectRematch(active) {
   const mode = active.mode || (active.setupData && active.setupData.mode) || 'normal';
   const numPlayers = 2;
   const playerName = active.playerName || (state.currentUser ? state.currentUser.username : 'Player 1');
+  const prevSeat = active.playerID !== undefined ? String(active.playerID) : '0';
+  const nextSeat = prevSeat === '0' ? '1' : '0';
 
   try {
     const createRes = await fetch(`/games/${gameId}/create`, {
@@ -476,7 +512,7 @@ export async function createDirectRematch(active) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        playerID: '0',
+        playerID: nextSeat,
         playerName
       })
     });
@@ -485,7 +521,7 @@ export async function createDirectRematch(active) {
     enterMatch({
       gameName: gameId,
       matchID: createData.matchID,
-      playerID: '0',
+      playerID: nextSeat,
       credentials: joinData.playerCredentials,
       playerName,
       mode
@@ -535,8 +571,16 @@ export async function transitionToNewMatch(group) {
   if (!group || !group.matchId || !state.currentMember) return;
   state.currentParty = group;
 
-  const myIndex = group.members.findIndex(m => m.id === state.currentMember.id);
-  const playerID = String(myIndex >= 0 ? myIndex : (state.currentMember.playerSeat || '0'));
+  // For 2-player rematches, alternate from the player's seat in the previous match
+  let playerID = '0';
+  if (state.activeMatch && state.activeMatch.playerID !== undefined) {
+    const prevSeat = String(state.activeMatch.playerID);
+    playerID = prevSeat === '0' ? '1' : '0';
+  } else if (group && group.members && state.currentMember) {
+    const myIndex = group.members.findIndex(m => m.id === state.currentMember.id);
+    playerID = String(myIndex >= 0 ? myIndex : (state.currentMember.playerSeat || '0'));
+  }
+
   const gameId = group.selectedGameId || (state.activeMatch && state.activeMatch.gameName) || 'tic-tac-toe';
   const playerName = state.currentMember ? state.currentMember.name : (state.currentUser ? state.currentUser.username : `Player ${parseInt(playerID, 10) + 1}`);
   const mode = (group.setupData && group.setupData.mode) || (state.activeMatch && state.activeMatch.mode) || 'normal';
@@ -563,16 +607,17 @@ export async function transitionToNewMatch(group) {
         credentials = state.activeMatch.credentials;
         assignedSeat = state.activeMatch.playerID;
       } else {
-        // Seat was taken -> auto-claim the first available seat
+        // Seat already claimed -> claim opposite seat
+        const altSeat = playerID === '0' ? '1' : '0';
         const retryRes = await fetch(`/games/${gameId}/${group.matchId}/join`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ playerName })
+          body: JSON.stringify({ playerID: altSeat, playerName })
         });
         if (retryRes.ok) {
           const retryData = await retryRes.json();
           credentials = retryData.playerCredentials;
-          assignedSeat = retryData.playerID !== undefined ? String(retryData.playerID) : playerID;
+          assignedSeat = retryData.playerID !== undefined ? String(retryData.playerID) : altSeat;
         }
       }
     }

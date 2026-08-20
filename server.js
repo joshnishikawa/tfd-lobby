@@ -59,9 +59,9 @@ router.get('/api/health', (ctx) => {
 
 // API: Discovered Games Metadata
 router.get('/api/games', (ctx) => {
-  const { metadata } = gameLoader.loadAll();
+  const isAdmin = ctx.query.admin === 'true' || ctx.query.admin === '1' || ctx.query.all === 'true' || ctx.query.all === '1';
   ctx.body = {
-    games: metadata
+    games: gameLoader.getMetadata({ isAdmin })
   };
 });
 

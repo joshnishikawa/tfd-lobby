@@ -18,12 +18,12 @@
 }
 
 .modal-card {
-  background: var(--navy-dark);
-  border: 1px solid var(--navy-border-bright);
+  background: var(--color-surface, var(--navy-dark));
+  border: 1px solid var(--color-border-strong, var(--navy-border-bright));
   border-radius: var(--radius-lg);
   max-width: 480px;
   width: 100%;
-  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.8), var(--gold-shadow);
+  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.4), var(--gold-shadow);
   overflow: hidden;
   animation: modalScale 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
@@ -35,7 +35,7 @@
 
 .modal-header {
   padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid var(--navy-border);
+  border-bottom: 1px solid var(--color-border, var(--navy-border));
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -44,6 +44,7 @@
 .modal-header h3 {
   font-family: 'Outfit', sans-serif;
   font-size: 1.2rem;
+  color: var(--color-heading, var(--text-main));
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -52,10 +53,15 @@
 .modal-close {
   background: none;
   border: none;
-  color: var(--text-muted);
+  color: var(--color-text-muted, var(--text-muted));
   font-size: 1.5rem;
   cursor: pointer;
   line-height: 1;
+  transition: var(--transition);
+}
+
+.modal-close:hover {
+  color: var(--color-text, var(--text-main));
 }
 
 .modal-body {
@@ -70,33 +76,55 @@
   display: block;
   font-size: 0.88rem;
   font-weight: 600;
-  color: var(--text-muted);
+  color: var(--color-heading, var(--text-main));
   margin-bottom: 0.4rem;
 }
 
 .form-control {
   width: 100%;
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid var(--navy-border);
-  color: var(--text-main);
-  padding: 0.75rem 1rem;
+  background-color: var(--color-surface, var(--navy-surface));
+  border: 1.5px solid var(--color-border-strong, var(--navy-border));
+  color: var(--color-text, var(--text-main));
+  padding: 0.65rem 1rem;
   border-radius: var(--radius-md);
   font-size: 0.95rem;
+  font-family: inherit;
+  box-sizing: border-box;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.form-control:hover {
+  border-color: var(--color-primary, var(--gold-primary));
 }
 
 .form-control:focus {
   outline: none;
-  border-color: var(--gold-primary);
-  box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.2);
+  border-color: var(--color-primary, var(--gold-primary));
+  box-shadow: 0 0 0 3px var(--color-primary-soft, rgba(79, 70, 229, 0.2));
+}
+
+.form-control::placeholder {
+  color: var(--color-text-soft, var(--text-muted));
+  opacity: 0.9;
+}
+
+select.form-control {
+  padding-right: 2.5rem;
+  background-image: var(--select-caret-icon);
+  background-repeat: no-repeat;
+  background-position: right 0.875rem center;
+  background-size: 16px 12px;
+  appearance: none;
+  cursor: pointer;
 }
 
 .modal-footer {
   padding: 1rem 1.5rem;
-  border-top: 1px solid var(--navy-border);
+  border-top: 1px solid var(--color-border, var(--navy-border));
   display: flex;
   justify-content: flex-end;
   gap: 0.75rem;
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--color-surface-muted, rgba(0, 0, 0, 0.2));
 }
 
 /* Mobile Responsive */

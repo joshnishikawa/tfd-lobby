@@ -117,7 +117,7 @@ export function openCreateTableModal(targetGameId) {
   
   if (gameSelect) {
     gameSelect.innerHTML = state.games.map(g => `
-      <option value="${g.id}" ${g.id === activeGameId ? 'selected' : ''}>${escapeHtml(g.name)}</option>
+      <option value="${g.id}" ${g.id === activeGameId ? 'selected' : ''}>${escapeHtml(g.name)}${g.enabled === false ? ' [Admin Only]' : ''}</option>
     `).join('');
   }
 

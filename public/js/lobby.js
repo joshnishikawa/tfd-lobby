@@ -9,7 +9,7 @@
  * - modules/match-manager.js: Active match lifecycle, game board mounting, and rematch coordination
  */
 
-import { state, el } from './modules/state.js';
+import { state, el, isUserAdmin } from './modules/state.js';
 import { translateDOM, setLanguage, getLanguage } from './modules/i18n.js';
 import {
   loadGamesCatalog,
@@ -205,12 +205,17 @@ window.addEventListener('languageChanged', (e) => {
 // Listen to SSO auth updates from shared tfd-navbar
 window.addEventListener('tfd-auth-change', (e) => {
   const user = e.detail && e.detail.user;
+  const prevIsAdmin = isUserAdmin(state.currentUser);
   state.currentUser = user;
   if (user) {
     if (el('createPlayerName')) el('createPlayerName').value = user.username;
     if (el('joinPlayerName')) el('joinPlayerName').value = user.username;
     if (el('createPartyHostName')) el('createPartyHostName').value = user.username;
     if (el('joinPartyMemberName')) el('joinPartyMemberName').value = user.username;
+  }
+  const newIsAdmin = isUserAdmin(user);
+  if (newIsAdmin !== prevIsAdmin) {
+    loadGamesCatalog(newIsAdmin);
   }
 });
 

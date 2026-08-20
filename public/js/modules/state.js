@@ -72,3 +72,17 @@ export function showToast(message, type = 'info') {
     toast.classList.add('hidden');
   }, 4000);
 }
+
+/**
+ * Check whether a user object has admin privileges
+ * @param {object | null} user 
+ * @returns {boolean}
+ */
+export function isUserAdmin(user) {
+  if (!user) return false;
+  if (user.is_admin === true || user.isAdmin === true) return true;
+  if (typeof user.role === 'string' && user.role.toLowerCase() === 'admin') return true;
+  if (Array.isArray(user.roles) && user.roles.some(r => String(r).toLowerCase() === 'admin')) return true;
+  if (Array.isArray(user.groups) && user.groups.some(g => String(g).toLowerCase() === 'admin')) return true;
+  return false;
+}

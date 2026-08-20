@@ -2,21 +2,24 @@
  * The Flying Dutchmen - Games Catalog & Quick Match Flow
  */
 
-import { state, el, escapeHtml, promptForName, showToast } from './state.js';
+import { state, el, escapeHtml, promptForName, showToast, isUserAdmin } from './state.js';
 import { refreshTables } from './tables-modals.js';
 import { enterMatch, abandonActiveMatch } from './match-manager.js';
 import { t } from './i18n.js';
 
 /**
  * Load list of available games from the backend
+ * @param {boolean | null} [isAdmin]
  */
-export async function loadGamesCatalog() {
+export async function loadGamesCatalog(isAdmin = null) {
   try {
-    const res = await fetch('/api/games');
+    const userIsAdmin = isAdmin !== null ? Boolean(isAdmin) : isUserAdmin(state.currentUser);
+    const url = userIsAdmin ? '/api/games?admin=true' : '/api/games';
+    const res = await fetch(url);
     const data = await res.json();
     state.games = data.games || [];
-    if (!state.selectedGameId && state.games.length > 0) {
-      state.selectedGameId = state.games[0].id;
+    if (!state.selectedGameId || !state.games.some(g => g.id === state.selectedGameId)) {
+      state.selectedGameId = state.games.length > 0 ? state.games[0].id : null;
     }
     renderGamesCatalog();
   } catch (err) {
@@ -102,11 +105,19 @@ export function renderGamesCatalog() {
     ` : '';
 
     const gameDesc = t(`catalog.descriptions.${game.id}`, { defaultValue: game.description });
+    const adminBadgeHtml = (game.enabled === false) ? `
+      <span class="game-admin-badge" title="Hidden from regular users via games.config.json">
+        <i class="bi bi-shield-lock-fill"></i> Admin Only
+      </span>
+    ` : '';
 
     return `
       <div class="game-card consolidated-card" id="gameCard_${game.id}">
         <div class="game-card-header">
-          <h3 class="game-card-title">${escapeHtml(game.name)}</h3>
+          <div class="game-title-group">
+            <h3 class="game-card-title">${escapeHtml(game.name)}</h3>
+            ${adminBadgeHtml}
+          </div>
           ${playerSelectHtml}
         </div>
 

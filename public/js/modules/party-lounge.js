@@ -94,7 +94,7 @@ export function renderPartyGameOptions() {
   }
 
   select.innerHTML = state.games.map(g => `
-    <option value="${g.id}">${escapeHtml(g.name)}</option>
+    <option value="${g.id}">${escapeHtml(g.name)}${g.enabled === false ? ' [Admin Only]' : ''}</option>
   `).join('');
 
   if (state.currentParty && state.currentParty.selectedGameId) {

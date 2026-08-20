@@ -44,6 +44,14 @@
   align-items: center;
   justify-content: space-between;
   margin-bottom: 0.85rem;
+  gap: 0.5rem;
+}
+
+.game-title-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .game-card-title {
@@ -52,6 +60,21 @@
   font-weight: 800;
   color: var(--gold-light);
   margin-bottom: 0;
+}
+
+.game-admin-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: rgba(239, 68, 68, 0.18);
+  border: 1px solid rgba(239, 68, 68, 0.45);
+  color: #fca5a5;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-full);
 }
 
 /* Player Count Select Dropdown */

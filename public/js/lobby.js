@@ -214,14 +214,15 @@ window.addEventListener('tfd-auth-change', (e) => {
     if (el('joinPartyMemberName')) el('joinPartyMemberName').value = user.username;
   }
   const newIsAdmin = isUserAdmin(user);
-  if (newIsAdmin !== prevIsAdmin) {
-    loadGamesCatalog(newIsAdmin);
-  }
+  loadGamesCatalog(newIsAdmin);
 });
 
 // App Initialization
 document.addEventListener('DOMContentLoaded', async () => {
   translateDOM();
+  if (window.tfdNavbar && window.tfdNavbar.currentUser) {
+    state.currentUser = window.tfdNavbar.currentUser;
+  }
   await loadGamesCatalog();
   startTablesPolling();
   await restorePartySession(switchFlow);

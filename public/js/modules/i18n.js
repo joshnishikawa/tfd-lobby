@@ -24,8 +24,10 @@ const LOCALES = {
         ultimate: 'Ultimate'
       },
       descriptions: {
-        'tic-tac-toe': 'Classic 3x3 grid game and Ultimate 9-grid variant.'
-      }
+        'tic-tac-toe': 'Classic 3x3 grid game and Ultimate 9-grid variant.',
+        'kred': 'Multiplayer board game of deception, political influence, and strategy.'
+      },
+      devTools: 'Admin Dev & Test Tools'
     },
     tables: {
       seatOpen: 'Seat {{seat}} (Open)',
@@ -122,8 +124,10 @@ const LOCALES = {
         ultimate: 'Ultimate'
       },
       descriptions: {
-        'tic-tac-toe': 'Juego clásico de cuadrícula 3x3 y variante Ultimate de 9 cuadrículas.'
-      }
+        'tic-tac-toe': 'Juego clásico de cuadrícula 3x3 y variante Ultimate de 9 cuadrículas.',
+        'kred': 'Juego de mesa multijugador de engaño, influencia política y estrategia.'
+      },
+      devTools: 'Herramientas de Desarrollo y Pruebas'
     },
     tables: {
       seatOpen: 'Asiento {{seat}} (Libre)',
@@ -220,8 +224,10 @@ const LOCALES = {
         ultimate: 'アルティメット'
       },
       descriptions: {
-        'tic-tac-toe': 'クラシックな3x3グリッドゲームと9マスのアルティメットバリアント。'
-      }
+        'tic-tac-toe': 'クラシックな3x3グリッドゲームと9マスのアルティメットバリアント。',
+        'kred': '欺瞞、政治的影響力、戦略のマルチプレイヤーボードゲーム。'
+      },
+      devTools: '開発・テストツール'
     },
     tables: {
       seatOpen: '座席 {{seat}} (空き)',

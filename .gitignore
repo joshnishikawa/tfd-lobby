@@ -39,6 +39,10 @@ coverage/
 .npm/
 .eslintcache
 
+# Distribution / Build output
+dist/
+release/
+
 # OS generated files
 .DS_Store
 .DS_Store?

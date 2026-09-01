@@ -5,7 +5,9 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "package": "node scripts/package.js",
+    "dist": "node scripts/package.js"
   },
   "keywords": [
     "boardgame.io",

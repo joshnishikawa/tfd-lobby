@@ -111,6 +111,39 @@ export function renderGamesCatalog() {
       </span>
     ` : '';
 
+    const devToolsHtml = (game.devTools && game.devTools.length > 0) ? `
+      <div class="card-devtools-section">
+        <div class="card-devtools-header">
+          <span class="devtools-header-title"><i class="bi bi-tools"></i> ${t('catalog.devTools', { defaultValue: 'Admin Dev & Test Tools' })}</span>
+          <span class="devtools-badge"><i class="bi bi-shield-fill"></i> Admin</span>
+        </div>
+        <div class="card-devtools-grid">
+          ${game.devTools.map(tool => {
+            const icon = tool.icon || 'bi-play-circle-fill';
+            const badge = tool.badge ? `<span class="devtool-pill">${escapeHtml(tool.badge)}</span>` : '';
+            const targetAttr = (tool.url && !tool.url.startsWith('javascript:')) ? 'target="_blank" rel="noopener"' : '';
+            return `
+              <a href="${escapeHtml(tool.url || '#')}" ${targetAttr} class="devtool-btn" title="${escapeHtml(tool.description || tool.name)}">
+                <div class="devtool-content-left">
+                  <div class="devtool-icon-wrapper">
+                    <i class="bi ${escapeHtml(icon)}"></i>
+                  </div>
+                  <div class="devtool-text-group">
+                    <span class="devtool-title">${escapeHtml(tool.name)}</span>
+                    ${tool.description ? `<span class="devtool-desc">${escapeHtml(tool.description)}</span>` : ''}
+                  </div>
+                </div>
+                <div class="devtool-meta">
+                  ${badge}
+                  <i class="bi bi-arrow-up-right-circle-fill devtool-icon-ext"></i>
+                </div>
+              </a>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    ` : '';
+
     return `
       <div class="game-card consolidated-card" id="gameCard_${game.id}">
         <div class="game-card-header">
@@ -144,6 +177,8 @@ export function renderGamesCatalog() {
             </div>
           </div>
         </div>
+
+        ${devToolsHtml}
 
       </div>
     `;

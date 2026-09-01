@@ -58,6 +58,18 @@ router.get('/api/health', (ctx) => {
 });
 
 // API: Discovered Games Metadata
+// API: GitHub Webhook for KRED auto-update
+try {
+  const KredWebhookHandler = require('./game_modules/KRED/scripts/webhook-handler.cjs');
+  const kredWebhook = new KredWebhookHandler();
+  router.post('/api/webhooks/kred', (ctx) => kredWebhook.handleRequest(ctx));
+  router.post('/api/webhooks/github', (ctx) => kredWebhook.handleRequest(ctx));
+  router.get('/api/webhooks/kred/logs', (ctx) => kredWebhook.getLogs(ctx));
+  console.log('[SERVER] GitHub webhook endpoints registered at /api/webhooks/kred');
+} catch (e) {
+  console.warn('[SERVER] Could not initialize KRED webhook:', e.message);
+}
+
 router.get('/api/games', (ctx) => {
   const isAdmin = ctx.query.admin === 'true' || ctx.query.admin === '1' || ctx.query.all === 'true' || ctx.query.all === '1';
   ctx.body = {
@@ -248,10 +260,13 @@ router.post('/api/groups/:code/play-again', async (ctx) => {
 });
 
 // Dynamic static asset serving for self-contained game modules (client.js, style.css, images, etc.)
+router.get('/game_modules/:gameId', async (ctx) => {
+  ctx.redirect(`/game_modules/${ctx.params.gameId}/`);
+});
+
 router.get('/game_modules/:gameId/(.*)', async (ctx) => {
   const { gameId } = ctx.params;
-  const subPath = ctx.params[0] || '';
-  if (!subPath) return;
+  let subPath = ctx.params[0] || '';
 
   const modulesDir = path.join(__dirname, 'game_modules');
   let gameDir = path.join(modulesDir, gameId);
@@ -269,19 +284,21 @@ router.get('/game_modules/:gameId/(.*)', async (ctx) => {
 
   if (!fs.existsSync(gameDir)) return;
 
-  let targetPath = subPath;
-  const directPath = path.join(gameDir, targetPath);
-
-  // Check if file exists directly or inside gameDir/public/
-  if (!fs.existsSync(directPath)) {
-    const publicPath = path.join(gameDir, 'public', targetPath);
-    if (fs.existsSync(publicPath)) {
-      targetPath = path.join('public', targetPath);
-    }
+  if (!subPath || subPath === '/') {
+    subPath = fs.existsSync(path.join(gameDir, 'dist', 'index.html')) ? 'dist/index.html' : 'index.html';
   }
 
-  if (fs.existsSync(path.join(gameDir, targetPath))) {
-    await send(ctx, targetPath, { root: gameDir });
+  const directPath = path.join(gameDir, subPath);
+
+  // Check direct -> dist/ -> public/
+  if (fs.existsSync(directPath) && !fs.statSync(directPath).isDirectory()) {
+    await send(ctx, subPath, { root: gameDir });
+  } else if (fs.existsSync(path.join(gameDir, 'dist', subPath)) && !fs.statSync(path.join(gameDir, 'dist', subPath)).isDirectory()) {
+    await send(ctx, path.join('dist', subPath), { root: gameDir });
+  } else if (fs.existsSync(path.join(gameDir, 'public', subPath)) && !fs.statSync(path.join(gameDir, 'public', subPath)).isDirectory()) {
+    await send(ctx, path.join('public', subPath), { root: gameDir });
+  } else if (fs.existsSync(path.join(directPath, 'index.html'))) {
+    await send(ctx, path.join(subPath, 'index.html'), { root: gameDir });
   }
 });
 

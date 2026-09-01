@@ -81,8 +81,10 @@ export function showToast(message, type = 'info') {
 export function isUserAdmin(user) {
   if (!user) return false;
   if (user.is_admin === true || user.isAdmin === true) return true;
-  if (typeof user.role === 'string' && user.role.toLowerCase() === 'admin') return true;
-  if (Array.isArray(user.roles) && user.roles.some(r => String(r).toLowerCase() === 'admin')) return true;
-  if (Array.isArray(user.groups) && user.groups.some(g => String(g).toLowerCase() === 'admin')) return true;
+  if (user.is_super_admin === true || user.isSuperAdmin === true) return true;
+  if (user.admin_type === 'super' || user.admin_type === 'admin') return true;
+  if (typeof user.role === 'string' && (user.role.toLowerCase() === 'admin' || user.role.toLowerCase() === 'administrator')) return true;
+  if (Array.isArray(user.roles) && user.roles.some(r => ['admin', 'administrator', 'administrators'].includes(String(r).toLowerCase()))) return true;
+  if (Array.isArray(user.groups) && user.groups.some(g => ['admin', 'administrator', 'administrators'].includes(String(g).toLowerCase()))) return true;
   return false;
 }

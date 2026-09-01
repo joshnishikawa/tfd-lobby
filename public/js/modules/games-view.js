@@ -260,9 +260,10 @@ export async function handleQuickMatch(targetGameId) {
       // Don't join a table where this player is already registered
       if ((m.players || []).some(p => p && p.name === playerName)) continue;
 
-      // Don't join a dead table where all existing players are disconnected
+      // Don't join a dead table where all existing players are disconnected and older than 5 minutes
       const hasConnectedPlayer = (m.players || []).some(p => p && p.name && p.isConnected);
-      if (!hasConnectedPlayer) continue;
+      const matchAge = Date.now() - (m.updatedAt || m.createdAt || Date.now());
+      if (!hasConnectedPlayer && matchAge > 5 * 60 * 1000) continue;
 
       const openSlot = (m.players || []).findIndex(p => !p.name);
       if (openSlot !== -1) {

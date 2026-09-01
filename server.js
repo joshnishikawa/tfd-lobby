@@ -9,6 +9,8 @@ const send = require('koa-send');
 
 const GameLoader = require('./lib/game-loader');
 const GroupManager = require('./lib/group-manager');
+const MySQLAdapter = require('./lib/mysql-adapter');
+const MatchRecorder = require('./lib/match-recorder');
 
 const port = parseInt(process.env.PORT, 10) || 4002;
 
@@ -17,10 +19,13 @@ const gameLoader = new GameLoader(path.join(__dirname, 'game_modules'));
 const { games, metadata: gamesMetadata } = gameLoader.loadAll();
 
 const groupManager = new GroupManager();
+const mysqlAdapter = new MySQLAdapter();
+const matchRecorder = new MatchRecorder();
 
-// Configure boardgame.io Server with Origins
+// Configure boardgame.io Server with Origins and MySQL DB Adapter
 const server = Server({
   games,
+  db: mysqlAdapter,
   origins: [
     Origins.LOCALHOST,
     'https://theflyingdutchmen.games',
@@ -115,6 +120,8 @@ async function cleanOrphanedMatches() {
       // 3. Completed matches older than 15 minutes
       if (metadata.gameover && age > 15 * 60 * 1000) {
         console.log(`[CLEANUP] Wiping completed match ${matchId} (${metadata.gameName})`);
+        const { state } = await server.db.fetch(matchId, { state: true });
+        await matchRecorder.recordCompletedMatch(matchId, metadata, state);
         await server.db.wipe(matchId);
         wiped.push(matchId);
         continue;
@@ -126,11 +133,29 @@ async function cleanOrphanedMatches() {
   return wiped;
 }
 
+// API: Recent Match History Stats
+router.get('/api/stats/recent', async (ctx) => {
+  const limit = parseInt(ctx.query.limit, 10) || 50;
+  const gameName = ctx.query.game || null;
+  const history = await matchRecorder.getRecentMatches(limit, gameName);
+  ctx.body = { history };
+});
+
+router.get('/api/stats/game/:gameId', async (ctx) => {
+  const limit = parseInt(ctx.query.limit, 10) || 50;
+  const history = await matchRecorder.getRecentMatches(limit, ctx.params.gameId);
+  ctx.body = { gameId: ctx.params.gameId, history };
+});
+
 // API: Manual / Client Match Wipe
 router.delete('/api/matches/:matchId', async (ctx) => {
   const { matchId } = ctx.params;
   try {
     if (server.db) {
+      const { metadata, state } = await server.db.fetch(matchId, { metadata: true, state: true });
+      if (metadata && (metadata.gameover || (state && state.ctx && state.ctx.gameover))) {
+        await matchRecorder.recordCompletedMatch(matchId, metadata, state);
+      }
       await server.db.wipe(matchId);
     }
     ctx.body = { success: true, wiped: matchId };

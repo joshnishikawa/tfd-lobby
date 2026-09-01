@@ -40,12 +40,15 @@ export async function refreshTables(targetGameId) {
       const data = await res.json();
       const matches = data.matches || [];
 
-      // Filter to open (joinable) tables (must have at least 1 player waiting, open seats, not game over, not abandoned)
+      // Filter to open (joinable) tables (must have at least 1 player waiting, open seats, not game over, not stale abandoned)
+      const now = Date.now();
       const openMatches = matches.filter(m => {
         const joinedPlayers = (m.players || []).filter(p => p && p.name);
         const totalSeats = (m.players || []).length;
         const hasConnectedPlayer = (m.players || []).some(p => p && p.name && p.isConnected);
-        const isAbandoned = joinedPlayers.length > 0 && !hasConnectedPlayer;
+        const age = now - (m.updatedAt || m.createdAt || now);
+        // Only consider abandoned if no connected players AND older than 5 minutes
+        const isAbandoned = joinedPlayers.length > 0 && !hasConnectedPlayer && age > 5 * 60 * 1000;
         return joinedPlayers.length > 0 && joinedPlayers.length < totalSeats && !m.gameover && !isAbandoned;
       });
 
@@ -66,10 +69,19 @@ export async function refreshTables(targetGameId) {
         const modeBadgeHtml = modeLabel ? `<span class="table-mode-badge ${escapeHtml(mode)}">${escapeHtml(modeLabel)}</span>` : '';
         const joinedCount = (m.players || []).filter(p => p && p.name).length;
         const totalSeats = (m.players || []).length;
-        const isMyMatch = activeMatchId && m.matchID === activeMatchId;
+        
+        // Only show Resume if this device/browser actually holds credentials for this match
+        let hasLocalCredentials = false;
+        if (activeMatchId && m.matchID === activeMatchId) {
+          hasLocalCredentials = true;
+        } else {
+          try {
+            if (localStorage.getItem(`tfd_creds_${m.matchID}`)) hasLocalCredentials = true;
+          } catch (e) {}
+        }
 
-        const actionButtonHtml = isMyMatch ? `
-          <button class="btn-gold btn-sm" onclick="resumeActiveMatch()" title="${escapeHtml(t('match.resumeMatch'))}">
+        const actionButtonHtml = hasLocalCredentials ? `
+          <button class="btn-gold btn-sm" onclick="resumeActiveMatch('${gameId}', '${m.matchID}')" title="${escapeHtml(t('match.resumeMatch'))}">
             <i class="bi bi-play-fill"></i> ${escapeHtml(t('match.resumeMatch'))}
           </button>
         ` : `
@@ -77,6 +89,8 @@ export async function refreshTables(targetGameId) {
             <i class="bi bi-door-open"></i> ${t('tables.joinBtn')}
           </button>
         `;
+
+        const isMyMatch = hasLocalCredentials;
 
         return `
           <div class="table-row ${isMyMatch ? 'my-active-table' : ''}">
@@ -89,6 +103,7 @@ export async function refreshTables(targetGameId) {
         `;
       }).join('');
     } catch (err) {
+      console.error(`[Tables] Error refreshing tables for ${gameId}:`, err);
       list.innerHTML = `<div class="empty-tables-hint"><p>Could not fetch tables.</p></div>`;
     }
   }
@@ -100,7 +115,7 @@ export async function refreshTables(targetGameId) {
 export function startTablesPolling() {
   if (state.tablesPollTimer) clearInterval(state.tablesPollTimer);
   state.tablesPollTimer = setInterval(() => {
-    if (state.activeFlow === 'game' && !state.activeMatch) {
+    if (state.activeFlow === 'game') {
       state.games.forEach(g => refreshTables(g.id));
     }
   }, 4000);
@@ -225,12 +240,6 @@ export function openJoinTableModal(gameId, matchID, players, mode) {
   if (activeMatch && (activeMatch.matchID === matchID || activeMatch.matchId === matchID)) {
     showToast('Resuming your active match...', 'info');
     enterMatch(activeMatch);
-    return;
-  }
-
-  const currentUsername = state.currentUser ? state.currentUser.username : '';
-  if (currentUsername && (players || []).some(p => p && p.name === currentUsername)) {
-    showToast('You are already registered in this match.', 'warning');
     return;
   }
 

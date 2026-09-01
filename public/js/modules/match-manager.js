@@ -25,8 +25,12 @@ export function registerMatchCallbacks({ switchFlow, leaveGroup, startPartyPolli
 export function enterMatch(matchConfig) {
   state.activeMatch = matchConfig;
   state.isMatchOver = false;
+  const matchIdStr = matchConfig.matchID || matchConfig.matchId || '';
   try {
     localStorage.setItem('tfd_active_match', JSON.stringify(matchConfig));
+    if (matchIdStr) {
+      localStorage.setItem(`tfd_creds_${matchIdStr}`, JSON.stringify(matchConfig));
+    }
   } catch (e) {}
 
   document.body.classList.add('in-game');
@@ -45,8 +49,6 @@ export function enterMatch(matchConfig) {
   if (viewBoard) {
     viewBoard.classList.remove('hidden');
   }
-
-  const matchIdStr = matchConfig.matchID || matchConfig.matchId || '';
   console.log(`[Match] Active match loaded: game="${matchConfig.gameName}", matchID="${matchIdStr}", playerID="${matchConfig.playerID}"`);
 
   // Sync match party & update Play Again button
@@ -137,7 +139,7 @@ export function checkActiveMatchBanner() {
 /**
  * Resume active match from banner
  */
-export function resumeActiveMatch() {
+export function resumeActiveMatch(targetGameId, targetMatchId) {
   let activeMatch = state.activeMatch;
   if (!activeMatch) {
     try {
@@ -145,10 +147,29 @@ export function resumeActiveMatch() {
       if (saved) activeMatch = JSON.parse(saved);
     } catch (e) {}
   }
+  
+  if (activeMatch && (!targetMatchId || activeMatch.matchID === targetMatchId || activeMatch.matchId === targetMatchId)) {
+    enterMatch(activeMatch);
+    return;
+  }
+
+  // If we have saved credentials for target match
+  if (targetMatchId) {
+    try {
+      const credsKey = `tfd_creds_${targetMatchId}`;
+      const savedCreds = localStorage.getItem(credsKey);
+      if (savedCreds) {
+        const parsed = JSON.parse(savedCreds);
+        enterMatch(parsed);
+        return;
+      }
+    } catch (e) {}
+  }
+
   if (activeMatch) {
     enterMatch(activeMatch);
   } else {
-    showToast('No active match found to resume.', 'warning');
+    showToast('No active match credentials found to resume.', 'warning');
   }
 }
 

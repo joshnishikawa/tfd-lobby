@@ -1,0 +1,40 @@
+services:
+  db:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: tfd_lobby
+      MYSQL_USER: tfd_user
+      MYSQL_PASSWORD: dev_secret_password
+      MYSQL_ROOT_PASSWORD: dev_root_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - tfd_db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "tfd_user", "-pdev_secret_password"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "4002:4002"
+    environment:
+      PORT: 4002
+      NODE_ENV: development
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_USER: tfd_user
+      DB_PASSWORD: dev_secret_password
+      DB_NAME: tfd_lobby
+      ALLOWED_ORIGINS: "http://localhost:4000,http://localhost:4002"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  tfd_db_data:

@@ -425,12 +425,40 @@ Custom styles loaded specifically when a match of this game begins.
 
 ## Development & Deployment
 
-### Local Development
+### Quickstart with Docker (Zero Setup)
+
+The easiest way to get the entire stack (Node.js lobby server + MySQL database + auto-migrations) running with zero setup:
+
 ```bash
-# Install dependencies
+# 1. Clone the repository
+git clone <REPO_URL>
+cd tfd-lobby
+
+# 2. Start the stack (database + lobby server)
+docker compose up
+```
+
+- **Lobby UI**: `http://localhost:4002`
+- **Health Check**: `http://localhost:4002/api/health`
+- **Database**: Automatically created and migrated (`tfd_lobby` on port `3306`).
+- No passwords or manual database setup required!
+
+To stop the containers:
+```bash
+docker compose down
+```
+
+### Manual Local Development (Without Docker)
+If you prefer running Node and MySQL directly on your host machine:
+
+```bash
+# 1. Install dependencies
 npm install
 
-# Run with nodemon auto-restart
+# 2. Setup your local MySQL database and configure .env
+cp .env.example .env
+
+# 3. Run with nodemon auto-restart
 npm run dev
 
 # Or run directly with Node
@@ -445,3 +473,4 @@ pm2 start ecosystem.config.js
 pm2 logs tfd-lobby
 pm2 restart tfd-lobby
 ```
+

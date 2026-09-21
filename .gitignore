@@ -25,6 +25,11 @@ pids/
 *.pid
 *.seed
 *.pid.lock
+data/
+*.sqlite
+*.sqlite3
+*.db
+
 
 # PM2 runtime
 .pm2/

@@ -425,52 +425,54 @@ Custom styles loaded specifically when a match of this game begins.
 
 ## Development & Deployment
 
-### Quickstart with Docker (Zero Setup)
+### Quickstart (True Zero Setup — No Docker or DB Required)
 
-The easiest way to get the entire stack (Node.js lobby server + MySQL database + auto-migrations) running with zero setup:
+Anyone can clone and run the lobby immediately with just Node.js installed:
 
 ```bash
 # 1. Clone the repository
 git clone <REPO_URL>
 cd tfd-lobby
 
-# 2. Start the stack (database + lobby server)
-docker compose up
+# 2. Install dependencies & start
+npm install
+npm start
+# (or 'npm run dev' for nodemon auto-restart)
 ```
 
 - **Lobby UI**: `http://localhost:4002`
 - **Health Check**: `http://localhost:4002/api/health`
-- **Database**: Automatically created and migrated (`tfd_lobby` on port `3306`).
-- No passwords or manual database setup required!
+- **Database**: Zero configuration required! The server automatically falls back to an embedded JSON database (`data/`) if MySQL is not detected.
+
+---
+
+### Alternative: Run with Docker Compose
+
+If you prefer running a fully containerized environment with MySQL 8.0:
+
+```bash
+docker compose up
+```
+
+- Spins up containerized MySQL and the Node lobby server.
+- Default dummy credentials and auto-migrations are pre-configured.
 
 To stop the containers:
 ```bash
 docker compose down
 ```
 
-### Manual Local Development (Without Docker)
-If you prefer running Node and MySQL directly on your host machine:
+---
 
-```bash
-# 1. Install dependencies
-npm install
+### Production Deployment (MySQL)
 
-# 2. Setup your local MySQL database and configure .env
-cp .env.example .env
-
-# 3. Run with nodemon auto-restart
-npm run dev
-
-# Or run directly with Node
-npm start
-```
-Default local port: `http://localhost:4002`
-
-### Production Deployment
-The lobby is configured to run via PM2 using `ecosystem.config.js`:
+For production deployments with dedicated MySQL:
+1. Copy `.env.example` to `.env` and fill in your production MySQL credentials.
+2. Run via PM2:
 ```bash
 pm2 start ecosystem.config.js
 pm2 logs tfd-lobby
 pm2 restart tfd-lobby
 ```
+
 

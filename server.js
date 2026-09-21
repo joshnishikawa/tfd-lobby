@@ -75,6 +75,19 @@ try {
   console.warn('[SERVER] Could not initialize KRED webhook:', e.message);
 }
 
+// API: GitHub Webhook for Meiji Town auto-update
+try {
+  const MeijiWebhookHandler = require('./game_modules/meiji-town/scripts/webhook-handler.cjs');
+  const meijiWebhook = new MeijiWebhookHandler();
+  router.post('/api/webhooks/meiji', (ctx) => meijiWebhook.handleRequest(ctx));
+  router.post('/api/webhooks/meiji-town', (ctx) => meijiWebhook.handleRequest(ctx));
+  router.get('/api/webhooks/meiji/logs', (ctx) => meijiWebhook.getLogs(ctx));
+  router.get('/api/webhooks/meiji-town/logs', (ctx) => meijiWebhook.getLogs(ctx));
+  console.log('[SERVER] GitHub webhook endpoints registered at /api/webhooks/meiji');
+} catch (e) {
+  console.warn('[SERVER] Could not initialize Meiji webhook:', e.message);
+}
+
 router.get('/api/games', (ctx) => {
   const isAdmin = ctx.query.admin === 'true' || ctx.query.admin === '1' || ctx.query.all === 'true' || ctx.query.all === '1';
   ctx.body = {

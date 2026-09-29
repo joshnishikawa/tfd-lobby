@@ -2,7 +2,7 @@
  * The Flying Dutchmen - Games Catalog & Quick Match Flow
  */
 
-import { state, el, escapeHtml, promptForName, showToast, isUserAdmin } from './state.js';
+import { state, el, escapeHtml, promptForName, showToast, isUserAdmin, isSinglePlayerGame } from './state.js';
 import { refreshTables } from './tables-modals.js';
 import { enterMatch, abandonActiveMatch } from './match-manager.js';
 import { t } from './i18n.js';
@@ -73,6 +73,7 @@ export function renderGamesCatalog() {
     let playerCounts = game.playerCounts || (game.minPlayers ? [game.minPlayers] : [2]);
     if (!playerCounts || playerCounts.length === 0) playerCounts = [2];
     const selectedPlayerCount = state.selectedPlayerCount[game.id] || playerCounts[0];
+    const isSinglePlayer = isSinglePlayerGame(game);
 
     const playerSelectHtml = playerCounts.length > 1 ? `
       <div class="player-select-wrapper">
@@ -81,7 +82,7 @@ export function renderGamesCatalog() {
           ${playerCounts.map(n => `<option value="${n}" ${n === selectedPlayerCount ? 'selected' : ''}>${t('catalog.playersCountOption', { count: n })}</option>`).join('')}
         </select>
       </div>
-    ` : `<span class="game-players-badge"><i class="bi bi-person"></i> ${t('catalog.playersCount', { count: playerCounts[0] })}</span>`;
+    ` : `<span class="game-players-badge"><i class="bi bi-person"></i> ${playerCounts[0] === 1 ? t('catalog.singlePlayer', { defaultValue: '1 Player' }) : t('catalog.playersCount', { count: playerCounts[0] })}</span>`;
 
     let modes = game.modes || [];
     const defaultMode = (modes.find(m => m.isDefault) || modes[0] || {}).id || 'normal';
@@ -144,6 +145,21 @@ export function renderGamesCatalog() {
       </div>
     ` : '';
 
+    const playBtnLabel = isSinglePlayer ? t('catalog.playGame', { defaultValue: 'Play Game' }) : t('catalog.quickMatch');
+    const playBtnIcon = isSinglePlayer ? 'bi-play-fill' : 'bi-lightning-charge-fill';
+
+    const tablesSectionHtml = isSinglePlayer ? '' : `
+      <div class="card-tables-section hidden" id="tablesSection_${game.id}">
+        <div class="card-tables-header">
+          <span>${t('catalog.openTables')}</span>
+          <button class="btn-refresh-sm" onclick="refreshTables('${game.id}')" title="${t('common.refresh', { defaultValue: 'Refresh' })}">
+            <i class="bi bi-arrow-clockwise"></i> ${t('common.refresh', { defaultValue: 'Refresh' })}
+          </button>
+        </div>
+        <div class="card-tables-list" id="tablesList_${game.id}"></div>
+      </div>
+    `;
+
     return `
       <div class="game-card consolidated-card" id="gameCard_${game.id}">
         <div class="game-card-header">
@@ -160,23 +176,11 @@ export function renderGamesCatalog() {
 
         <div class="game-card-actions">
           <button class="btn-primary w-100" onclick="handleQuickMatch('${game.id}')">
-            <i class="bi bi-lightning-charge-fill"></i> ${t('catalog.quickMatch')}
+            <i class="bi ${playBtnIcon}"></i> ${playBtnLabel}
           </button>
         </div>
 
-        <div class="card-tables-section">
-          <div class="card-tables-header">
-            <span>${t('catalog.openTables')}</span>
-            <button class="btn-refresh-sm" onclick="refreshTables('${game.id}')" title="${t('common.refresh', { defaultValue: 'Refresh' })}">
-              <i class="bi bi-arrow-clockwise"></i> ${t('common.refresh', { defaultValue: 'Refresh' })}
-            </button>
-          </div>
-          <div class="card-tables-list" id="tablesList_${game.id}">
-            <div class="empty-tables-hint">
-              <i class="bi bi-hourglass-split"></i> ${t('common.loading')}
-            </div>
-          </div>
-        </div>
+        ${tablesSectionHtml}
 
         ${devToolsHtml}
 
@@ -184,8 +188,12 @@ export function renderGamesCatalog() {
     `;
   }).join('');
 
-  // Fetch open tables for all games
-  state.games.forEach(g => refreshTables(g.id));
+  // Fetch open tables for all multiplayer games
+  state.games.forEach(g => {
+    if (!isSinglePlayerGame(g)) {
+      refreshTables(g.id);
+    }
+  });
 }
 
 /**
@@ -194,7 +202,10 @@ export function renderGamesCatalog() {
  */
 export function selectGame(gameId) {
   state.selectedGameId = gameId;
-  refreshTables(gameId);
+  const game = state.games.find(g => g.id === gameId);
+  if (!isSinglePlayerGame(game)) {
+    refreshTables(gameId);
+  }
 }
 
 /**
@@ -240,7 +251,12 @@ export async function handleQuickMatch(targetGameId) {
     await abandonActiveMatch();
   }
 
-  showToast(`Searching for open ${game.name} match (${modeLabel}, ${numPlayers}P)...`, 'info');
+  const isSingle = isSinglePlayerGame(game);
+  if (isSingle) {
+    showToast(`Starting ${game.name} (${modeLabel})...`, 'info');
+  } else {
+    showToast(`Searching for open ${game.name} match (${modeLabel}, ${numPlayers}P)...`, 'info');
+  }
 
   try {
     const res = await fetch(`/games/${game.id}`);
@@ -316,7 +332,10 @@ export async function handleQuickMatch(targetGameId) {
     if (!joinRes.ok) throw new Error('Failed to join match');
     const joinData = await joinRes.json();
 
-    showToast(`Created new table #${createData.matchID.substring(0, 8)}. Waiting for opponent...`, 'info');
+    const startMsg = isSingle
+      ? `Starting ${game.name} #${createData.matchID.substring(0, 8)}...`
+      : `Created new table #${createData.matchID.substring(0, 8)}. Waiting for opponent...`;
+    showToast(startMsg, 'info');
     enterMatch({
       gameName: game.id,
       matchID: createData.matchID,

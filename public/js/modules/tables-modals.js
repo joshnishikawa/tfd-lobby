@@ -2,7 +2,7 @@
  * The Flying Dutchmen - Tables Listing & Table Modals
  */
 
-import { state, el, escapeHtml, showToast } from './state.js';
+import { state, el, escapeHtml, showToast, isSinglePlayerGame } from './state.js';
 import { enterMatch, abandonActiveMatch, resumeActiveMatch } from './match-manager.js';
 import { t } from './i18n.js';
 
@@ -28,13 +28,18 @@ export async function refreshTables(targetGameId) {
   const activeMatchId = activeMatch ? (activeMatch.matchID || activeMatch.matchId) : null;
 
   for (const gameId of gamesToRefresh) {
+    const game = state.games.find(g => g.id === gameId);
+    if (isSinglePlayerGame(game)) continue;
+
+    const section = el(`tablesSection_${gameId}`);
     const list = el(`tablesList_${gameId}`);
     if (!list) continue;
 
     try {
       const res = await fetch(`/games/${gameId}`);
       if (!res.ok) {
-        list.innerHTML = `<div class="empty-tables-hint"><p>No active tables found.</p></div>`;
+        if (section) section.classList.add('hidden');
+        list.innerHTML = '';
         continue;
       }
       const data = await res.json();
@@ -53,13 +58,12 @@ export async function refreshTables(targetGameId) {
       });
 
       if (openMatches.length === 0) {
-        list.innerHTML = `
-          <div class="empty-tables-hint">
-            <p><i class="bi bi-info-circle"></i> ${t('catalog.noOpenTables')}</p>
-          </div>
-        `;
+        if (section) section.classList.add('hidden');
+        list.innerHTML = '';
         continue;
       }
+
+      if (section) section.classList.remove('hidden');
 
       list.innerHTML = openMatches.map(m => {
         const mode = (m.setupData && m.setupData.mode) || '';
@@ -104,7 +108,8 @@ export async function refreshTables(targetGameId) {
       }).join('');
     } catch (err) {
       console.error(`[Tables] Error refreshing tables for ${gameId}:`, err);
-      list.innerHTML = `<div class="empty-tables-hint"><p>Could not fetch tables.</p></div>`;
+      if (section) section.classList.add('hidden');
+      list.innerHTML = '';
     }
   }
 }
@@ -116,7 +121,11 @@ export function startTablesPolling() {
   if (state.tablesPollTimer) clearInterval(state.tablesPollTimer);
   state.tablesPollTimer = setInterval(() => {
     if (state.activeFlow === 'game') {
-      state.games.forEach(g => refreshTables(g.id));
+      state.games.forEach(g => {
+        if (!isSinglePlayerGame(g)) {
+          refreshTables(g.id);
+        }
+      });
     }
   }, 4000);
 }
@@ -128,10 +137,11 @@ export function startTablesPolling() {
 export function openCreateTableModal(targetGameId) {
   const modal = el('createTableModal');
   const gameSelect = el('createGameSelect');
-  const activeGameId = targetGameId || state.selectedGameId || (state.games[0] && state.games[0].id);
+  const multiplayerGames = state.games.filter(g => !isSinglePlayerGame(g));
+  const activeGameId = targetGameId || (state.selectedGameId && !isSinglePlayerGame(state.games.find(g => g.id === state.selectedGameId)) ? state.selectedGameId : null) || (multiplayerGames[0] && multiplayerGames[0].id);
   
   if (gameSelect) {
-    gameSelect.innerHTML = state.games.map(g => `
+    gameSelect.innerHTML = multiplayerGames.map(g => `
       <option value="${g.id}" ${g.id === activeGameId ? 'selected' : ''}>${escapeHtml(g.name)}${g.enabled === false ? ' [Admin Only]' : ''}</option>
     `).join('');
   }

@@ -2,7 +2,7 @@
  * The Flying Dutchmen - Party Lounge (Group-First Flow)
  */
 
-import { state, el, escapeHtml, showToast } from './state.js';
+import { state, el, escapeHtml, showToast, isSinglePlayerGame } from './state.js';
 import { enterMatch, updatePlayAgainButton, transitionToNewMatch } from './match-manager.js';
 import { t } from './i18n.js';
 
@@ -87,13 +87,15 @@ export function renderPartyGameOptions() {
   const select = el('selectPartyGame');
   if (!select) return;
 
-  if (state.games.length === 0) {
-    select.innerHTML = `<option value="">No games available</option>`;
+  const multiplayerGames = state.games.filter(g => !isSinglePlayerGame(g));
+
+  if (multiplayerGames.length === 0) {
+    select.innerHTML = `<option value="">No multiplayer games available</option>`;
     updatePartyGamePreview();
     return;
   }
 
-  select.innerHTML = state.games.map(g => `
+  select.innerHTML = multiplayerGames.map(g => `
     <option value="${g.id}">${escapeHtml(g.name)}${g.enabled === false ? ' [Admin Only]' : ''}</option>
   `).join('');
 

@@ -88,3 +88,16 @@ export function isUserAdmin(user) {
   if (Array.isArray(user.groups) && user.groups.some(g => ['admin', 'administrator', 'administrators'].includes(String(g).toLowerCase()))) return true;
   return false;
 }
+
+/**
+ * Check whether a game is single-player only
+ * @param {object | null} game 
+ * @returns {boolean}
+ */
+export function isSinglePlayerGame(game) {
+  if (!game) return false;
+  if (game.maxPlayers === 1) return true;
+  const playerCounts = game.playerCounts || (game.minPlayers ? [game.minPlayers] : []);
+  if (Array.isArray(playerCounts) && playerCounts.length === 1 && playerCounts[0] === 1) return true;
+  return false;
+}

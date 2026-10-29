@@ -9,6 +9,238 @@ let switchFlowHandler = null;
 let leaveGroupHandler = null;
 let partyPollingHandler = null;
 
+const trackedAudioContexts = new Set();
+const trackedAudioElements = new Set();
+const gameWindowListeners = [];
+const gameIntervals = new Set();
+let hasMountedGame = false;
+
+const origWindowAddEventListener = window.addEventListener.bind(window);
+const origWindowRemoveEventListener = window.removeEventListener.bind(window);
+const origSetInterval = window.setInterval.bind(window);
+const origClearInterval = window.clearInterval.bind(window);
+
+(function installGameSandboxHooks() {
+  // 1. Intercept Web Audio API (AudioContext / webkitAudioContext)
+  ['AudioContext', 'webkitAudioContext'].forEach((ctxName) => {
+    const OrigAudioContext = window[ctxName];
+    if (!OrigAudioContext || OrigAudioContext.__tfdWrapped) return;
+
+    const WrappedAudioContext = function (...args) {
+      const ctx = new OrigAudioContext(...args);
+      trackedAudioContexts.add(ctx);
+
+      const origSuspend = ctx.suspend.bind(ctx);
+      const origResume = ctx.resume.bind(ctx);
+      ctx.__tfdOrigSuspend = origSuspend;
+      ctx.__tfdOrigResume = origResume;
+
+      ctx.resume = function () {
+        if (!document.body.classList.contains('in-game')) {
+          return origSuspend().catch(() => {});
+        }
+        return origResume();
+      };
+
+      ['createOscillator', 'createBufferSource'].forEach((method) => {
+        if (typeof ctx[method] !== 'function') return;
+        const origCreate = ctx[method].bind(ctx);
+        ctx[method] = function (...createArgs) {
+          const node = origCreate(...createArgs);
+          const origStart = node.start.bind(node);
+          node.start = function (...startArgs) {
+            if (!document.body.classList.contains('in-game')) {
+              origSuspend().catch(() => {});
+              return;
+            }
+            return origStart(...startArgs);
+          };
+          return node;
+        };
+      });
+
+      if (!document.body.classList.contains('in-game')) {
+        origSuspend().catch(() => {});
+      }
+      return ctx;
+    };
+
+    WrappedAudioContext.prototype = OrigAudioContext.prototype;
+    Object.setPrototypeOf(WrappedAudioContext, OrigAudioContext);
+    WrappedAudioContext.__tfdWrapped = true;
+    window[ctxName] = WrappedAudioContext;
+  });
+
+  // 2. Intercept HTMLMediaElement.prototype.play (<audio>, <video>, new Audio())
+  if (typeof HTMLMediaElement !== 'undefined' && HTMLMediaElement.prototype && !HTMLMediaElement.prototype.__tfdWrapped) {
+    const origPlay = HTMLMediaElement.prototype.play;
+    HTMLMediaElement.prototype.play = function (...args) {
+      trackedAudioElements.add(this);
+      if (!document.body.classList.contains('in-game')) {
+        try { this.pause(); } catch (e) {}
+        return Promise.resolve();
+      }
+      return origPlay.apply(this, args);
+    };
+    HTMLMediaElement.prototype.__tfdWrapped = true;
+  }
+
+  // 3. Track & guard window event listeners registered by game modules
+  if (!window.addEventListener.__tfdWrapped) {
+    const lobbyEventTypes = new Set(['tfd-language-change', 'languageChanged', 'tfd-auth-change', 'DOMContentLoaded']);
+    window.addEventListener = function (type, listener, options) {
+      if (!hasMountedGame || lobbyEventTypes.has(type) || typeof listener !== 'function') {
+        return origWindowAddEventListener(type, listener, options);
+      }
+      const wrappedListener = function (event, ...rest) {
+        if (!document.body.classList.contains('in-game')) return;
+        if (event && event.target && typeof event.target.closest === 'function' && event.target.closest('.match-nav-actions')) {
+          return;
+        }
+        return listener.call(this, event, ...rest);
+      };
+      gameWindowListeners.push({ type, listener: wrappedListener, origListener: listener, options });
+      return origWindowAddEventListener(type, wrappedListener, options);
+    };
+    window.addEventListener.__tfdWrapped = true;
+
+    window.removeEventListener = function (type, listener, options) {
+      for (let i = gameWindowListeners.length - 1; i >= 0; i--) {
+        const entry = gameWindowListeners[i];
+        if (entry.type === type && (entry.origListener === listener || entry.listener === listener)) {
+          gameWindowListeners.splice(i, 1);
+          return origWindowRemoveEventListener(type, entry.listener, entry.options);
+        }
+      }
+      return origWindowRemoveEventListener(type, listener, options);
+    };
+  }
+
+  // 4. Track & guard setInterval timers created by game modules
+  if (!window.setInterval.__tfdWrapped) {
+    window.setInterval = function (fn, delay, ...args) {
+      if (!hasMountedGame || typeof fn !== 'function') {
+        return origSetInterval(fn, delay, ...args);
+      }
+      const id = origSetInterval((...cbArgs) => {
+        if (id === state.partyPollTimer || id === state.tablesPollTimer) {
+          return fn(...cbArgs);
+        }
+        if (!document.body.classList.contains('in-game')) {
+          origClearInterval(id);
+          gameIntervals.delete(id);
+          return;
+        }
+        return fn(...cbArgs);
+      }, delay, ...args);
+      gameIntervals.add(id);
+      return id;
+    };
+    window.setInterval.__tfdWrapped = true;
+
+    window.clearInterval = function (id) {
+      gameIntervals.delete(id);
+      return origClearInterval(id);
+    };
+  }
+})();
+
+/**
+ * Stop all active game audio, timers, sockets, and unmount game client UI
+ */
+export function unmountGameClient() {
+  // 1. Pause/stop any active game simulation before calling module unmount
+  if (window.game) {
+    try {
+      if (window.game.simulation) {
+        if (typeof window.game.simulation.pause === 'function') window.game.simulation.pause();
+        if (typeof window.game.simulation.stop === 'function') window.game.simulation.stop();
+        if (window.game.simulation.time && typeof window.game.simulation.time.pause === 'function') {
+          window.game.simulation.time.pause();
+        }
+      }
+      if (typeof window.game.pauseSimulation === 'function') window.game.pauseSimulation();
+    } catch (e) {}
+  }
+
+  // 2. Invoke unmountClient on registered game modules
+  if (window.GameModules && typeof window.GameModules === 'object') {
+    const seen = new Set();
+    Object.values(window.GameModules).forEach((mod) => {
+      if (mod && !seen.has(mod) && typeof mod.unmountClient === 'function') {
+        seen.add(mod);
+        try { mod.unmountClient(); } catch (e) {}
+      }
+    });
+  }
+
+  // 3. Stop boardgame.io client, sockets, and polling timers
+  if (state.boardgameClient) {
+    try { state.boardgameClient.stop(); } catch (e) {}
+    state.boardgameClient = null;
+  }
+  ['__currentTTTSocket', '__currentMeijiSocket'].forEach((key) => {
+    if (window[key]) {
+      try { window[key].disconnect(); } catch (e) {}
+      window[key] = null;
+    }
+  });
+  ['__currentTTTPoll', '__meijiAutoSaveTimer'].forEach((key) => {
+    if (window[key]) {
+      origClearInterval(window[key]);
+      window[key] = null;
+    }
+  });
+
+  // 4. Clear any remaining game intervals (preserving lobby pollers)
+  gameIntervals.forEach((id) => {
+    if (id !== state.partyPollTimer && id !== state.tablesPollTimer) {
+      origClearInterval(id);
+      gameIntervals.delete(id);
+    }
+  });
+
+  // 5. Remove window event listeners registered by the game
+  while (gameWindowListeners.length > 0) {
+    const entry = gameWindowListeners.pop();
+    try { origWindowRemoveEventListener(entry.type, entry.listener, entry.options); } catch (e) {}
+  }
+
+  // 6. Pause and reset all HTML5 audio/video elements (including inside Shadow DOM)
+  const container = el('boardMountContainer');
+  if (container) {
+    const shadowHost = container.querySelector('.game-shadow-host');
+    const roots = [container, shadowHost && shadowHost.shadowRoot].filter(Boolean);
+    roots.forEach((root) => {
+      try {
+        root.querySelectorAll('audio, video').forEach((media) => trackedAudioElements.add(media));
+      } catch (e) {}
+    });
+  }
+  trackedAudioElements.forEach((media) => {
+    try {
+      media.pause();
+      media.currentTime = 0;
+    } catch (e) {}
+  });
+
+  // 7. Suspend all Web Audio contexts and cancel any speech synthesis
+  trackedAudioContexts.forEach((ctx) => {
+    if (ctx && ctx.state !== 'closed') {
+      const suspendFn = ctx.__tfdOrigSuspend || ctx.suspend.bind(ctx);
+      try { suspendFn().catch(() => {}); } catch (e) {}
+    }
+  });
+  if (typeof window.speechSynthesis !== 'undefined' && window.speechSynthesis) {
+    try { window.speechSynthesis.cancel(); } catch (e) {}
+  }
+
+  // 8. Clear board mount container DOM
+  if (container) {
+    container.innerHTML = '';
+  }
+}
+
 /**
  * Register callbacks to avoid circular dependencies
  */
@@ -23,6 +255,7 @@ export function registerMatchCallbacks({ switchFlow, leaveGroup, startPartyPolli
  * @param {object} matchConfig 
  */
 export function enterMatch(matchConfig) {
+  unmountGameClient();
   state.activeMatch = matchConfig;
   state.isMatchOver = false;
   const matchIdStr = matchConfig.matchID || matchConfig.matchId || '';
@@ -34,6 +267,11 @@ export function enterMatch(matchConfig) {
   } catch (e) {}
 
   document.body.classList.add('in-game');
+  trackedAudioContexts.forEach((ctx) => {
+    if (ctx && ctx.state === 'suspended') {
+      try { ctx.resume().catch(() => {}); } catch (e) {}
+    }
+  });
   const viewGame = el('viewGameFirst');
   const viewGroup = el('viewGroupFirst');
   const viewBoard = el('viewMatchBoard');
@@ -64,18 +302,7 @@ export function enterMatch(matchConfig) {
  */
 export function exitToLobby() {
   document.body.classList.remove('in-game');
-  if (state.boardgameClient) {
-    try { state.boardgameClient.stop(); } catch (e) {}
-    state.boardgameClient = null;
-  }
-  if (window.__currentTTTSocket) {
-    try { window.__currentTTTSocket.disconnect(); } catch (e) {}
-    window.__currentTTTSocket = null;
-  }
-  if (window.__currentTTTPoll) {
-    clearInterval(window.__currentTTTPoll);
-    window.__currentTTTPoll = null;
-  }
+  unmountGameClient();
   if (state.currentParty && state.currentParty.code && state.currentParty.code.startsWith('M-')) {
     if (typeof leaveGroupHandler === 'function') {
       leaveGroupHandler();
@@ -185,6 +412,10 @@ export async function abandonActiveMatch() {
     } catch (e) {}
   }
 
+  // Immediately silence audio and unmount active game client before async network calls
+  document.body.classList.remove('in-game');
+  unmountGameClient();
+
   if (activeMatch) {
     const gameName = activeMatch.gameName || activeMatch.gameId;
     const matchID = activeMatch.matchID || activeMatch.matchId;
@@ -206,20 +437,6 @@ export async function abandonActiveMatch() {
         console.warn('[MATCH-ABANDON] Failed to send leave request to server:', err.message);
       }
     }
-  }
-
-  // Stop client / socket / polling
-  if (state.boardgameClient) {
-    try { state.boardgameClient.stop(); } catch (e) {}
-    state.boardgameClient = null;
-  }
-  if (window.__currentTTTSocket) {
-    try { window.__currentTTTSocket.disconnect(); } catch (e) {}
-    window.__currentTTTSocket = null;
-  }
-  if (window.__currentTTTPoll) {
-    clearInterval(window.__currentTTTPoll);
-    window.__currentTTTPoll = null;
   }
 
   // Leave match party room if currently in a match-synced group
@@ -246,7 +463,6 @@ export async function abandonActiveMatch() {
     localStorage.removeItem('tfd_active_match');
   } catch (e) {}
 
-  document.body.classList.remove('in-game');
   const viewBoard = el('viewMatchBoard');
   if (viewBoard) viewBoard.classList.add('hidden');
 
@@ -270,6 +486,7 @@ export function mountGameClient(matchConfig) {
   const gameName = (matchConfig.gameName || (state.games[0] ? state.games[0].id : '')).toLowerCase();
   const container = el('boardMountContainer');
   if (!container || !gameName) return;
+  hasMountedGame = true;
   container.innerHTML = '';
 
   // Create isolated Shadow DOM host

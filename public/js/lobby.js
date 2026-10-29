@@ -53,6 +53,7 @@ import {
   resumeActiveMatch,
   abandonActiveMatch,
   mountGameClient,
+  unmountGameClient,
   renderDefaultGamePlaceholder,
   syncMatchParty,
   handlePlayAgain,
@@ -97,6 +98,10 @@ function setupPartyInputs() {
 
 // Flow Switching (Quick Match vs Party Lounge)
 export function switchFlow(flow) {
+  if (document.body.classList.contains('in-game')) {
+    document.body.classList.remove('in-game');
+    unmountGameClient();
+  }
   state.activeFlow = flow;
   const tabGame = el('tabGameFirst');
   const tabGroup = el('tabGroupFirst');

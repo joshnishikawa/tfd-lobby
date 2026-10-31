@@ -2,7 +2,7 @@
  * The Flying Dutchmen - Party Lounge (Group-First Flow)
  */
 
-import { state, el, escapeHtml, showToast, isSinglePlayerGame } from './state.js';
+import { state, el, escapeHtml, showToast, isSinglePlayerGame, getSavedGuestName, saveGuestName } from './state.js';
 import { enterMatch, updatePlayAgainButton, transitionToNewMatch } from './match-manager.js';
 import { t } from './i18n.js';
 
@@ -134,7 +134,9 @@ export function updatePartyGamePreview() {
  */
 export async function handleCreateGroup() {
   const nameInput = el('createPartyHostName');
-  const hostName = (nameInput && nameInput.value.trim()) || (state.currentUser ? state.currentUser.username : '');
+  const typedName = (nameInput && nameInput.value.trim()) || '';
+  if (!state.currentUser && typedName) saveGuestName(typedName);
+  const hostName = typedName || (state.currentUser ? state.currentUser.username : getSavedGuestName());
   if (!hostName) {
     showToast('Please enter your name', 'warning');
     if (nameInput) nameInput.focus();
@@ -169,7 +171,9 @@ export async function handleJoinGroup() {
   const codeInput = el('inputPartyCode');
   const nameInput = el('joinPartyMemberName');
   const code = (codeInput && codeInput.value.trim().toUpperCase()) || '';
-  const memberName = (nameInput && nameInput.value.trim()) || (state.currentUser ? state.currentUser.username : '');
+  const typedName = (nameInput && nameInput.value.trim()) || '';
+  if (!state.currentUser && typedName) saveGuestName(typedName);
+  const memberName = typedName || (state.currentUser ? state.currentUser.username : getSavedGuestName());
 
   if (!code) {
     showToast('Please enter a party code', 'warning');

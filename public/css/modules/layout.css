@@ -11,8 +11,37 @@
 }
 
 .hero-header {
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
   margin-bottom: 1.5rem;
+}
+
+.guest-name-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: var(--navy-card, var(--color-surface, rgba(16, 30, 48, 0.9)));
+  border: 1px solid var(--navy-border);
+  color: var(--text-main);
+  padding: 0.55rem 0.95rem;
+  border-radius: var(--radius-full);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.guest-name-btn:hover {
+  border-color: var(--gold-primary);
+  background: rgba(212, 175, 55, 0.08);
+}
+
+.guest-name-btn .guest-edit-icon {
+  font-size: 0.72rem;
+  color: var(--text-muted);
 }
 
 .hero-title {

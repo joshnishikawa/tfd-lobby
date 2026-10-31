@@ -2,7 +2,7 @@
  * The Flying Dutchmen - Tables Listing & Table Modals
  */
 
-import { state, el, escapeHtml, showToast, isSinglePlayerGame } from './state.js';
+import { state, el, escapeHtml, showToast, isSinglePlayerGame, getSavedGuestName, saveGuestName, syncPlayerNameUI } from './state.js';
 import { enterMatch, abandonActiveMatch, resumeActiveMatch } from './match-manager.js';
 import { t } from './i18n.js';
 
@@ -147,6 +147,7 @@ export function openCreateTableModal(targetGameId) {
   }
 
   updateCreateModalPlayerOptions();
+  syncPlayerNameUI();
   if (modal) modal.classList.remove('hidden');
 }
 
@@ -187,7 +188,9 @@ export function closeCreateTableModal() {
 export async function submitCreateTable() {
   const gameId = el('createGameSelect').value;
   const numPlayers = parseInt(el('createNumPlayers').value, 10) || 2;
-  const playerName = el('createPlayerName').value.trim() || (state.currentUser ? state.currentUser.username : 'Player 1');
+  const typedName = el('createPlayerName').value.trim();
+  if (!state.currentUser && typedName) saveGuestName(typedName);
+  const playerName = typedName || (state.currentUser ? state.currentUser.username : (getSavedGuestName() || 'Player 1'));
   const game = state.games.find(g => g.id === gameId);
   const selectedMode = (state.selectedGameMode && state.selectedGameMode[gameId]) || (game && game.modes && game.modes[0] ? game.modes[0].id : 'normal');
 
@@ -275,6 +278,7 @@ export function openJoinTableModal(gameId, matchID, players, mode) {
     });
   }
 
+  syncPlayerNameUI();
   if (modal) modal.classList.remove('hidden');
 }
 
@@ -298,7 +302,9 @@ export async function submitJoinTable() {
   const gameId = currentModalGameId || state.selectedGameId;
   const mode = currentModalMode || 'normal';
   const playerID = el('joinSeatSelect').value;
-  const playerName = el('joinPlayerName').value.trim() || (state.currentUser ? state.currentUser.username : `Player ${parseInt(playerID, 10) + 1}`);
+  const typedName = el('joinPlayerName').value.trim();
+  if (!state.currentUser && typedName) saveGuestName(typedName);
+  const playerName = typedName || (state.currentUser ? state.currentUser.username : (getSavedGuestName() || `Player ${parseInt(playerID, 10) + 1}`));
 
   try {
     // If user has a previous active match that is different, abandon it first

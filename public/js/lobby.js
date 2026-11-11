@@ -9,7 +9,7 @@
  * - modules/match-manager.js: Active match lifecycle, game board mounting, and rematch coordination
  */
 
-import { state, el, isUserAdmin, syncPlayerNameUI, editGuestName } from './modules/state.js';
+import { state, el, isUserAdmin, syncPlayerNameUI, saveGuestName } from './modules/state.js';
 import { translateDOM, setLanguage, getLanguage } from './modules/i18n.js';
 import {
   loadGamesCatalog,
@@ -172,7 +172,7 @@ window.exitToLobby = exitToLobby;
 window.handlePlayAgain = handlePlayAgain;
 window.resumeActiveMatch = resumeActiveMatch;
 window.abandonActiveMatch = abandonActiveMatch;
-window.editGuestName = editGuestName;
+window.saveGuestName = saveGuestName;
 
 window.setMatchGameOver = function(isOver = true) {
   state.isMatchOver = Boolean(isOver);

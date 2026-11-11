@@ -30,18 +30,30 @@
   border-radius: var(--radius-full);
   font-size: 0.85rem;
   font-weight: 500;
-  cursor: pointer;
+  cursor: text;
   transition: var(--transition);
 }
 
-.guest-name-btn:hover {
+.guest-name-btn:hover,
+.guest-name-btn:focus-within {
   border-color: var(--gold-primary);
   background: rgba(212, 175, 55, 0.08);
 }
 
-.guest-name-btn .guest-edit-icon {
-  font-size: 0.72rem;
+.guest-name-input {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: inherit;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 500;
+  width: 165px;
+}
+
+.guest-name-input::placeholder {
   color: var(--text-muted);
+  font-weight: 400;
 }
 
 .hero-title {

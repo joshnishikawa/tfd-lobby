@@ -43,11 +43,10 @@
           <span data-i18n="hero.partyLounge">Party Lounge</span>
         </button>
       </div>
-      <button class="guest-name-btn hidden" id="guestNameBtn" onclick="editGuestName()" title="Change display name">
+      <label class="guest-name-btn hidden" id="guestNameBtn" for="guestNameInput" title="Change display name">
         <i class="bi bi-person-fill text-gold"></i>
-        <span id="guestNameDisplay"></span>
-        <i class="bi bi-pencil-fill guest-edit-icon"></i>
-      </button>
+        <input type="text" id="guestNameInput" class="guest-name-input" placeholder="Enter your display name" data-i18n-placeholder="party.namePlaceholder" maxlength="30" autocomplete="nickname" oninput="saveGuestName(this.value)" />
+      </label>
     </section>
 
     <!-- Global Alert / Notification Toast -->

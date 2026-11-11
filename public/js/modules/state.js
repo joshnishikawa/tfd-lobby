@@ -62,64 +62,50 @@ export function getSavedGuestName() {
  */
 export function saveGuestName(name) {
   const trimmed = (name || '').trim();
-  if (!trimmed) return;
   try {
-    localStorage.setItem(GUEST_NAME_KEY, trimmed);
+    if (trimmed) {
+      localStorage.setItem(GUEST_NAME_KEY, trimmed);
+    } else {
+      localStorage.removeItem(GUEST_NAME_KEY);
+    }
   } catch (e) {}
   syncPlayerNameUI();
 }
 
 /**
- * Sync player name inputs and guest name badge with current user or saved guest name
+ * Sync player name inputs and guest name field with current user or saved guest name
  */
 export function syncPlayerNameUI() {
   const activeName = state.currentUser ? state.currentUser.username : getSavedGuestName();
-  ['createPlayerName', 'joinPlayerName', 'createPartyHostName', 'joinPartyMemberName'].forEach((id) => {
+  ['guestNameInput', 'createPlayerName', 'joinPlayerName', 'createPartyHostName', 'joinPartyMemberName'].forEach((id) => {
     const input = el(id);
-    if (input && activeName) {
+    if (input && document.activeElement !== input) {
       input.value = activeName;
     }
   });
 
   const btn = el('guestNameBtn');
-  const label = el('guestNameDisplay');
-  if (!btn || !label) return;
+  if (!btn) return;
 
   if (state.currentUser) {
     btn.classList.add('hidden');
   } else {
-    const guestName = getSavedGuestName();
-    label.textContent = guestName || 'Set Display Name';
     btn.classList.remove('hidden');
   }
 }
 
 /**
- * Simple prompt dialog helper for guest display name
- * @param {string} msg 
- * @param {boolean} [forcePrompt=false]
- * @returns {string | null}
+ * Resolve guest display name from inline field or saved state
+ * @returns {string}
  */
-export function promptForName(msg = 'Enter your display name:', forcePrompt = false) {
-  const saved = getSavedGuestName();
-  if (!forcePrompt && saved) {
-    return saved;
+export function promptForName() {
+  const input = el('guestNameInput');
+  const typed = input ? input.value.trim() : '';
+  if (typed) {
+    saveGuestName(typed);
+    return typed;
   }
-  const name = prompt(msg, saved || 'Player');
-  if (name === null) return null;
-  const trimmed = name.trim();
-  if (trimmed) {
-    saveGuestName(trimmed);
-    return trimmed;
-  }
-  return null;
-}
-
-/**
- * Prompt guest user to set or change their saved display name
- */
-export function editGuestName() {
-  promptForName('Enter your display name:', true);
+  return getSavedGuestName() || 'Player';
 }
 
 /**

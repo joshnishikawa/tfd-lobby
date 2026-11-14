@@ -2,7 +2,7 @@
  * The Flying Dutchmen - Match Lifecycle, Game Mounting & Rematch Manager
  */
 
-import { state, el, escapeHtml, showToast } from './state.js';
+import { state, el, escapeHtml, showToast, getTransportGameId, buildMatchSetupData } from './state.js';
 import { t } from './i18n.js';
 
 let switchFlowHandler = null;
@@ -179,7 +179,7 @@ export function unmountGameClient() {
     try { state.boardgameClient.stop(); } catch (e) {}
     state.boardgameClient = null;
   }
-  ['__currentTTTSocket', '__currentMeijiSocket'].forEach((key) => {
+  ['__currentTTTSocket', '__currentMeijiSocket', '__currentSandboxSocket'].forEach((key) => {
     if (window[key]) {
       try { window[key].disconnect(); } catch (e) {}
       window[key] = null;
@@ -338,8 +338,9 @@ export function checkActiveMatchBanner() {
   }
 
   if (activeMatch && !document.body.classList.contains('in-game')) {
-    const game = state.games.find(g => g.id === activeMatch.gameName);
-    const gameTitle = game ? game.name : activeMatch.gameName;
+    const catalogId = activeMatch.catalogGameId || activeMatch.gameName;
+    const game = state.games.find(g => g.id === catalogId);
+    const gameTitle = activeMatch.gameTitle || (game ? game.name : catalogId);
     const matchIdVal = activeMatch.matchID || activeMatch.matchId || '';
     const matchShortId = matchIdVal ? matchIdVal.substring(0, 8) : '000';
 
@@ -583,7 +584,7 @@ export async function syncMatchParty(matchConfig) {
   const cfg = matchConfig || state.activeMatch;
   if (!cfg) return;
   const matchId = cfg.matchID || cfg.matchId;
-  const gameId = cfg.gameName || cfg.gameId || 'tic-tac-toe';
+  const gameId = cfg.catalogGameId || cfg.gameName || cfg.gameId || 'tic-tac-toe';
   const playerSeat = cfg.playerID !== undefined ? String(cfg.playerID) : '0';
   const memberName = cfg.playerName || (state.currentUser ? state.currentUser.username : `Player ${parseInt(playerSeat, 10) + 1}`);
   const mode = cfg.mode || (cfg.setupData && cfg.setupData.mode) || 'normal';
@@ -669,12 +670,15 @@ export async function handlePlayAgain() {
           } else {
             // Provision new match and launch
             showToast('Everyone voted! Launching new game...', 'success');
-            const gameId = data.group.selectedGameId || (state.activeMatch && state.activeMatch.gameName) || 'tic-tac-toe';
+            const catalogGameId = data.group.selectedGameId || (state.activeMatch && (state.activeMatch.catalogGameId || state.activeMatch.gameName)) || 'tic-tac-toe';
+            const game = state.games.find(g => g.id === catalogGameId);
+            const transportGameId = getTransportGameId(game || catalogGameId);
             const numPlayers = Math.max(members.length, 2);
-            const setupData = data.group.setupData || (state.activeMatch && state.activeMatch.setupData) || { mode: 'normal' };
+            const baseSetup = buildMatchSetupData(game || catalogGameId, 'normal');
+            const setupData = { ...baseSetup, ...(data.group.setupData || (state.activeMatch && state.activeMatch.setupData) || {}) };
 
             try {
-              const createRes = await fetch(`/games/${gameId}/create`, {
+              const createRes = await fetch(`/games/${transportGameId}/create`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ numPlayers, setupData })
@@ -727,26 +731,30 @@ export async function handlePlayAgain() {
  * @param {object} active 
  */
 export async function createDirectRematch(active) {
-  const gameId = active.gameName || 'tic-tac-toe';
+  const catalogGameId = active.catalogGameId || active.gameName || 'tic-tac-toe';
+  const game = state.games.find(g => g.id === catalogGameId);
+  const transportGameId = getTransportGameId(game || catalogGameId);
   const mode = active.mode || (active.setupData && active.setupData.mode) || 'normal';
-  const numPlayers = 2;
+  const setupData = { ...buildMatchSetupData(game || catalogGameId, mode), ...(active.setupData || {}), mode };
+  const isSolo = game && game.maxPlayers === 1;
+  const numPlayers = isSolo ? 1 : 2;
   const playerName = active.playerName || (state.currentUser ? state.currentUser.username : 'Player 1');
   const prevSeat = active.playerID !== undefined ? String(active.playerID) : '0';
-  const nextSeat = prevSeat === '0' ? '1' : '0';
+  const nextSeat = isSolo ? '0' : (prevSeat === '0' ? '1' : '0');
 
   try {
-    const createRes = await fetch(`/games/${gameId}/create`, {
+    const createRes = await fetch(`/games/${transportGameId}/create`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         numPlayers,
-        setupData: { mode }
+        setupData
       })
     });
     if (!createRes.ok) throw new Error('Failed to create match');
     const createData = await createRes.json();
 
-    const joinRes = await fetch(`/games/${gameId}/${createData.matchID}/join`, {
+    const joinRes = await fetch(`/games/${transportGameId}/${createData.matchID}/join`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -757,12 +765,15 @@ export async function createDirectRematch(active) {
     const joinData = await joinRes.json();
 
     enterMatch({
-      gameName: gameId,
+      gameName: transportGameId,
+      catalogGameId: game ? game.id : catalogGameId,
+      gameTitle: active.gameTitle || (game ? game.name : catalogGameId),
       matchID: createData.matchID,
       playerID: nextSeat,
       credentials: joinData.playerCredentials,
       playerName,
-      mode
+      mode,
+      setupData
     });
   } catch (err) {
     showToast('Rematch error: ' + err.message, 'error');
@@ -819,12 +830,15 @@ export async function transitionToNewMatch(group) {
     playerID = String(myIndex >= 0 ? myIndex : (state.currentMember.playerSeat || '0'));
   }
 
-  const gameId = group.selectedGameId || (state.activeMatch && state.activeMatch.gameName) || 'tic-tac-toe';
+  const catalogGameId = group.selectedGameId || (state.activeMatch && (state.activeMatch.catalogGameId || state.activeMatch.gameName)) || 'tic-tac-toe';
+  const game = state.games.find(g => g.id === catalogGameId);
+  const transportGameId = getTransportGameId(game || catalogGameId);
   const playerName = state.currentMember ? state.currentMember.name : (state.currentUser ? state.currentUser.username : `Player ${parseInt(playerID, 10) + 1}`);
   const mode = (group.setupData && group.setupData.mode) || (state.activeMatch && state.activeMatch.mode) || 'normal';
+  const setupData = { ...buildMatchSetupData(game || catalogGameId, mode), ...(group.setupData || {}) };
 
   try {
-    let joinRes = await fetch(`/games/${gameId}/${group.matchId}/join`, {
+    let joinRes = await fetch(`/games/${transportGameId}/${group.matchId}/join`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -847,7 +861,7 @@ export async function transitionToNewMatch(group) {
       } else {
         // Seat already claimed -> claim opposite seat
         const altSeat = playerID === '0' ? '1' : '0';
-        const retryRes = await fetch(`/games/${gameId}/${group.matchId}/join`, {
+        const retryRes = await fetch(`/games/${transportGameId}/${group.matchId}/join`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ playerID: altSeat, playerName })
@@ -862,12 +876,15 @@ export async function transitionToNewMatch(group) {
 
     showToast('Starting new match!', 'success');
     enterMatch({
-      gameName: gameId,
+      gameName: transportGameId,
+      catalogGameId: game ? game.id : catalogGameId,
+      gameTitle: game ? game.name : catalogGameId,
       matchID: group.matchId,
       playerID: assignedSeat,
       credentials,
       playerName,
-      mode
+      mode,
+      setupData
     });
     updatePlayAgainButton();
   } catch (err) {

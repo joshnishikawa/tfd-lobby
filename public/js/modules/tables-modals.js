@@ -2,7 +2,19 @@
  * The Flying Dutchmen - Tables Listing & Table Modals
  */
 
-import { state, el, escapeHtml, showToast, isSinglePlayerGame, getSavedGuestName, saveGuestName, syncPlayerNameUI } from './state.js';
+import {
+  state,
+  el,
+  escapeHtml,
+  showToast,
+  isSinglePlayerGame,
+  getSavedGuestName,
+  saveGuestName,
+  syncPlayerNameUI,
+  getTransportGameId,
+  buildMatchSetupData,
+  matchesCatalogGame
+} from './state.js';
 import { enterMatch, abandonActiveMatch, resumeActiveMatch } from './match-manager.js';
 import { t } from './i18n.js';
 
@@ -35,8 +47,11 @@ export async function refreshTables(targetGameId) {
     const list = el(`tablesList_${gameId}`);
     if (!list) continue;
 
+    const game = state.games.find(g => g.id === gameId);
+    const transportGameId = getTransportGameId(game || gameId);
+
     try {
-      const res = await fetch(`/games/${gameId}`);
+      const res = await fetch(`/games/${transportGameId}`);
       if (!res.ok) {
         if (section) section.classList.add('hidden');
         list.innerHTML = '';
@@ -45,9 +60,10 @@ export async function refreshTables(targetGameId) {
       const data = await res.json();
       const matches = data.matches || [];
 
-      // Filter to open (joinable) tables (must have at least 1 player waiting, open seats, not game over, not stale abandoned)
+      // Filter to open (joinable) tables matching this catalog game
       const now = Date.now();
       const openMatches = matches.filter(m => {
+        if (!matchesCatalogGame(m, game)) return false;
         const joinedPlayers = (m.players || []).filter(p => p && p.name);
         const totalSeats = (m.players || []).length;
         const hasConnectedPlayer = (m.players || []).some(p => p && p.name && p.isConnected);
@@ -193,6 +209,8 @@ export async function submitCreateTable() {
   const playerName = typedName || (state.currentUser ? state.currentUser.username : (getSavedGuestName() || 'Player 1'));
   const game = state.games.find(g => g.id === gameId);
   const selectedMode = (state.selectedGameMode && state.selectedGameMode[gameId]) || (game && game.modes && game.modes[0] ? game.modes[0].id : 'normal');
+  const transportGameId = getTransportGameId(game || gameId);
+  const setupData = buildMatchSetupData(game || gameId, selectedMode);
 
   try {
     // If user already has an active match, abandon it first so it is not orphaned
@@ -200,16 +218,16 @@ export async function submitCreateTable() {
       await abandonActiveMatch();
     }
 
-    const createRes = await fetch(`/games/${gameId}/create`, {
+    const createRes = await fetch(`/games/${transportGameId}/create`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ numPlayers, setupData: { mode: selectedMode } })
+      body: JSON.stringify({ numPlayers, setupData })
     });
     if (!createRes.ok) throw new Error('Could not create table');
     const createData = await createRes.json();
     const matchID = createData.matchID;
 
-    const joinRes = await fetch(`/games/${gameId}/${matchID}/join`, {
+    const joinRes = await fetch(`/games/${transportGameId}/${matchID}/join`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -221,12 +239,15 @@ export async function submitCreateTable() {
 
     closeCreateTableModal();
     enterMatch({
-      gameName: gameId,
+      gameName: transportGameId,
+      catalogGameId: game ? game.id : gameId,
+      gameTitle: game ? game.name : gameId,
       matchID,
       playerID: '0',
       credentials: joinData.playerCredentials,
       playerName,
-      mode: selectedMode
+      mode: selectedMode,
+      setupData
     });
   } catch (err) {
     showToast('Failed to create table: ' + err.message, 'error');
@@ -306,13 +327,17 @@ export async function submitJoinTable() {
   if (!state.currentUser && typedName) saveGuestName(typedName);
   const playerName = typedName || (state.currentUser ? state.currentUser.username : (getSavedGuestName() || `Player ${parseInt(playerID, 10) + 1}`));
 
+  const game = state.games.find(g => g.id === gameId);
+  const transportGameId = getTransportGameId(game || gameId);
+  const setupData = buildMatchSetupData(game || gameId, mode);
+
   try {
     // If user has a previous active match that is different, abandon it first
     if (state.activeMatch && (state.activeMatch.matchID !== matchID && state.activeMatch.matchId !== matchID)) {
       await abandonActiveMatch();
     }
 
-    const res = await fetch(`/games/${gameId}/${matchID}/join`, {
+    const res = await fetch(`/games/${transportGameId}/${matchID}/join`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ playerID, playerName })
@@ -322,12 +347,15 @@ export async function submitJoinTable() {
 
     closeJoinTableModal();
     enterMatch({
-      gameName: gameId,
+      gameName: transportGameId,
+      catalogGameId: game ? game.id : gameId,
+      gameTitle: game ? game.name : gameId,
       matchID,
       playerID,
       credentials: data.playerCredentials,
       playerName,
-      mode
+      mode,
+      setupData
     });
   } catch (err) {
     showToast('Error joining table: ' + err.message, 'error');

@@ -1,0 +1,22 @@
+{
+  "id": "sandbox-runner",
+  "name": "Tabletop Sandbox Runner",
+  "description": "Generic boardgame.io tabletop runner for published Board Game Studio sandboxes.",
+  "playerCounts": [1, 2, 3, 4, 5, 6],
+  "minPlayers": 1,
+  "maxPlayers": 6,
+  "version": "1.0.0",
+  "status": "active",
+  "hidden": true,
+  "author": "The Flying Dutchmen",
+  "tags": ["sandbox", "tabletop"],
+  "icon": "bi-grid-1x2-fill",
+  "modes": [
+    {
+      "id": "standard",
+      "name": "Tabletop Play",
+      "description": "Playtest the published tabletop layout.",
+      "isDefault": true
+    }
+  ]
+}

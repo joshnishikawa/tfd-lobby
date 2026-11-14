@@ -157,3 +157,54 @@ export function isSinglePlayerGame(game) {
   if (Array.isArray(playerCounts) && playerCounts.length === 1 && playerCounts[0] === 1) return true;
   return false;
 }
+
+/**
+ * Resolve the boardgame.io transport game ID (`sandbox-runner` for published sandboxes).
+ * @param {object | string | null} gameOrId
+ * @returns {string}
+ */
+export function getTransportGameId(gameOrId) {
+  if (!gameOrId) return '';
+  if (typeof gameOrId === 'string') {
+    const found = state.games.find((g) => g.id === gameOrId);
+    if (found) return found.runnerGameId || found.id;
+    if (/^sandbox-\d+$/.test(gameOrId)) return 'sandbox-runner';
+    return gameOrId;
+  }
+  return gameOrId.runnerGameId || gameOrId.id || '';
+}
+
+/**
+ * Build boardgame.io `setupData` preserving `publishedSandboxId` for published sandboxes.
+ * @param {object | string | null} gameOrId
+ * @param {string} [mode]
+ * @returns {object}
+ */
+export function buildMatchSetupData(gameOrId, mode = 'normal') {
+  const game = typeof gameOrId === 'string' ? state.games.find((g) => g.id === gameOrId) : gameOrId;
+  const setupData = { mode: mode || 'normal' };
+  if (game && game.publishedSandboxId) {
+    setupData.publishedSandboxId = Number(game.publishedSandboxId);
+  } else if (typeof gameOrId === 'string') {
+    const m = /^sandbox-(\d+)$/.exec(gameOrId);
+    if (m) setupData.publishedSandboxId = Number(m[1]);
+  }
+  return setupData;
+}
+
+/**
+ * Determine whether a boardgame.io match belongs to the given catalog game entry.
+ * @param {object} match
+ * @param {object | null} game
+ * @returns {boolean}
+ */
+export function matchesCatalogGame(match, game) {
+  if (!game) return true;
+  const matchSandboxId = match && match.setupData && match.setupData.publishedSandboxId
+    ? Number(match.setupData.publishedSandboxId)
+    : null;
+  if (game.isPublishedSandbox || game.publishedSandboxId) {
+    return matchSandboxId === Number(game.publishedSandboxId);
+  }
+  return !matchSandboxId;
+}

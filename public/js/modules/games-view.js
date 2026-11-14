@@ -2,7 +2,18 @@
  * The Flying Dutchmen - Games Catalog & Quick Match Flow
  */
 
-import { state, el, escapeHtml, promptForName, showToast, isUserAdmin, isSinglePlayerGame } from './state.js';
+import {
+  state,
+  el,
+  escapeHtml,
+  promptForName,
+  showToast,
+  isUserAdmin,
+  isSinglePlayerGame,
+  getTransportGameId,
+  buildMatchSetupData,
+  matchesCatalogGame
+} from './state.js';
 import { refreshTables } from './tables-modals.js';
 import { enterMatch, abandonActiveMatch } from './match-manager.js';
 import { t } from './i18n.js';
@@ -107,8 +118,8 @@ export function renderGamesCatalog() {
 
     const gameDesc = t(`catalog.descriptions.${game.id}`, { defaultValue: game.description });
     const adminBadgeHtml = (game.enabled === false) ? `
-      <span class="game-admin-badge" title="Hidden from regular users via games.config.json">
-        <i class="bi bi-shield-lock-fill"></i> Admin Only
+      <span class="game-admin-badge" title="${game.isPublishedSandbox ? 'Published Sandbox (Admin Only)' : 'Hidden from regular users via games.config.json'}">
+        <i class="bi bi-shield-lock-fill"></i> Admin Only${game.isPublishedSandbox ? ' • Published Sandbox' : ''}
       </span>
     ` : '';
 
@@ -258,14 +269,18 @@ export async function handleQuickMatch(targetGameId) {
     showToast(`Searching for open ${game.name} match (${modeLabel}, ${numPlayers}P)...`, 'info');
   }
 
+  const transportGameId = getTransportGameId(game);
+  const setupData = buildMatchSetupData(game, selectedMode);
+
   try {
-    const res = await fetch(`/games/${game.id}`);
+    const res = await fetch(`/games/${transportGameId}`);
     const data = await res.json();
     const matches = data.matches || [];
 
-    // Find match with open seat that matches chosen options (mode, player count)
+    // Find match with open seat that matches chosen options (mode, player count, publishedSandboxId)
     for (const m of matches) {
       if (m.gameover) continue;
+      if (!matchesCatalogGame(m, game)) continue;
 
       const matchMode = (m.setupData && m.setupData.mode) || 'normal';
       if (matchMode !== selectedMode) continue;
@@ -284,7 +299,7 @@ export async function handleQuickMatch(targetGameId) {
       const openSlot = (m.players || []).findIndex(p => !p.name);
       if (openSlot !== -1) {
         // Join this match!
-        const joinRes = await fetch(`/games/${game.id}/${m.matchID}/join`, {
+        const joinRes = await fetch(`/games/${transportGameId}/${m.matchID}/join`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -296,12 +311,15 @@ export async function handleQuickMatch(targetGameId) {
           const joinData = await joinRes.json();
           showToast(`Joined open match #${m.matchID.substring(0, 8)}!`, 'success');
           enterMatch({
-            gameName: game.id,
+            gameName: transportGameId,
+            catalogGameId: game.id,
+            gameTitle: game.name,
             matchID: m.matchID,
             playerID: String(openSlot),
             credentials: joinData.playerCredentials,
             playerName,
-            mode: matchMode
+            mode: matchMode,
+            setupData: m.setupData || setupData
           });
           return;
         }
@@ -309,19 +327,19 @@ export async function handleQuickMatch(targetGameId) {
     }
 
     // No open table found with matching options -> Create one automatically!
-    const createRes = await fetch(`/games/${game.id}/create`, {
+    const createRes = await fetch(`/games/${transportGameId}/create`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         numPlayers,
-        setupData: { mode: selectedMode }
+        setupData
       })
     });
     if (!createRes.ok) throw new Error('Failed to create match');
     const createData = await createRes.json();
 
     // Join as player 0
-    const joinRes = await fetch(`/games/${game.id}/${createData.matchID}/join`, {
+    const joinRes = await fetch(`/games/${transportGameId}/${createData.matchID}/join`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -337,12 +355,15 @@ export async function handleQuickMatch(targetGameId) {
       : `Created new table #${createData.matchID.substring(0, 8)}. Waiting for opponent...`;
     showToast(startMsg, 'info');
     enterMatch({
-      gameName: game.id,
+      gameName: transportGameId,
+      catalogGameId: game.id,
+      gameTitle: game.name,
       matchID: createData.matchID,
       playerID: '0',
       credentials: joinData.playerCredentials,
       playerName,
-      mode: selectedMode
+      mode: selectedMode,
+      setupData
     });
   } catch (err) {
     showToast('Quick match error: ' + err.message, 'error');

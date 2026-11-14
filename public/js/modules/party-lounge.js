@@ -2,7 +2,17 @@
  * The Flying Dutchmen - Party Lounge (Group-First Flow)
  */
 
-import { state, el, escapeHtml, showToast, isSinglePlayerGame, getSavedGuestName, saveGuestName } from './state.js';
+import {
+  state,
+  el,
+  escapeHtml,
+  showToast,
+  isSinglePlayerGame,
+  getSavedGuestName,
+  saveGuestName,
+  getTransportGameId,
+  buildMatchSetupData
+} from './state.js';
 import { enterMatch, updatePlayAgainButton, transitionToNewMatch } from './match-manager.js';
 import { t } from './i18n.js';
 
@@ -332,6 +342,8 @@ export async function handleToggleReady() {
  */
 export async function handleHostGameChange(gameId) {
   if (!state.currentParty || !state.currentMember || !state.currentMember.isHost) return;
+  const game = state.games.find(g => g.id === gameId);
+  const setupData = buildMatchSetupData(game || gameId, 'normal');
 
   try {
     const res = await fetch(`/api/groups/${state.currentParty.code}/select-game`, {
@@ -339,7 +351,8 @@ export async function handleHostGameChange(gameId) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         memberId: state.currentMember.id,
-        gameId
+        gameId,
+        setupData
       })
     });
     const data = await res.json();
@@ -361,14 +374,19 @@ export async function handleLaunchPartyGame() {
     showToast('No game selected to launch', 'warning');
     return;
   }
+  const game = state.games.find(g => g.id === gameId);
+  const transportGameId = getTransportGameId(game || gameId);
   const numPlayers = Math.max((state.currentParty.members && state.currentParty.members.length) || 2, 2);
-  const setupData = state.currentParty.setupData || {};
+  const setupData = {
+    ...buildMatchSetupData(game || gameId, 'normal'),
+    ...(state.currentParty.setupData || {})
+  };
 
   try {
     showToast('Creating match on game server...', 'info');
 
     // 1. Create boardgame.io match
-    const createRes = await fetch(`/games/${gameId}/create`, {
+    const createRes = await fetch(`/games/${transportGameId}/create`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ numPlayers, setupData })
@@ -380,7 +398,7 @@ export async function handleLaunchPartyGame() {
     const prevSeat = (state.activeMatch && state.activeMatch.playerID !== undefined) ? String(state.activeMatch.playerID) : null;
     const hostSeat = (prevSeat !== null && numPlayers === 2) ? (prevSeat === '0' ? '1' : '0') : '0';
 
-    const joinRes = await fetch(`/games/${gameId}/${matchId}/join`, {
+    const joinRes = await fetch(`/games/${transportGameId}/${matchId}/join`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -392,12 +410,15 @@ export async function handleLaunchPartyGame() {
 
     // 3. Immediately enter match so background poller doesn't race
     enterMatch({
-      gameName: gameId,
+      gameName: transportGameId,
+      catalogGameId: game ? game.id : gameId,
+      gameTitle: game ? game.name : gameId,
       matchID: matchId,
       playerID: hostSeat,
       credentials: joinData.playerCredentials,
       playerName: state.currentMember.name,
-      mode: (setupData && setupData.mode) || ''
+      mode: (setupData && setupData.mode) || '',
+      setupData
     });
 
     // 4. Notify group server so other members are alerted to join

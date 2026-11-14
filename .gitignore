@@ -69,3 +69,4 @@ Thumbs.db
 # Standalone game modules
 game_modules/*
 !game_modules/tic-tac-toe/
+!game_modules/sandbox-runner/

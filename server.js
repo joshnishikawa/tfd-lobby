@@ -1,6 +1,7 @@
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { Server, Origins } = require('boardgame.io/server');
 const Router = require('@koa/router');
 const bodyParser = require('koa-bodyparser');
@@ -11,6 +12,8 @@ const GameLoader = require('./lib/game-loader');
 const GroupManager = require('./lib/group-manager');
 const MySQLAdapter = require('./lib/mysql-adapter');
 const MatchRecorder = require('./lib/match-recorder');
+const { resolveRequestAdmin, verifyPublishSignature } = require('./lib/auth');
+const publishedSandboxStore = require('./lib/published-sandbox-store');
 
 const port = parseInt(process.env.PORT, 10) || 4002;
 
@@ -21,6 +24,10 @@ const { games, metadata: gamesMetadata } = gameLoader.loadAll();
 const groupManager = new GroupManager();
 const mysqlAdapter = new MySQLAdapter();
 const matchRecorder = new MatchRecorder();
+const INTERNAL_LOOPBACK_TOKEN = crypto.randomBytes(24).toString('hex');
+const sandboxStoreReady = publishedSandboxStore.loadAll().catch((err) => {
+  console.error('[PUBLISHED-SANDBOX] Initial load error:', err.message);
+});
 
 // Configure boardgame.io Server with Origins and MySQL DB Adapter
 const server = Server({
@@ -39,9 +46,31 @@ const server = Server({
   ],
 });
 
+// Prepend server-side admin enforcement before boardgame.io Lobby routes handle /games/:gameId/create
+server.app.middleware.unshift(async (ctx, next) => {
+  const match = ctx.method === 'POST' ? /^\/games\/([^/]+)\/create\/?$/.exec(ctx.path) : null;
+  if (match) {
+    const requestedGameId = decodeURIComponent(match[1]);
+    const isInternal = ctx.headers && ctx.headers['x-tfd-internal'] === INTERNAL_LOOPBACK_TOKEN;
+    const isSandboxRunner = requestedGameId === 'sandbox-runner';
+    const meta = gamesMetadata.find((m) => m.id === requestedGameId);
+    const isAdminRestricted = isSandboxRunner || (meta && (meta.enabled === false || meta.hidden === true));
+
+    if (!isInternal && isAdminRestricted) {
+      const authResult = await resolveRequestAdmin(ctx);
+      if (!authResult.isAdmin) {
+        ctx.status = 403;
+        ctx.body = { error: 'Administrator privileges are required to launch this game.' };
+        return;
+      }
+    }
+  }
+  return next();
+});
+
 // Custom API Router
 const router = new Router();
-const apiBodyParser = bodyParser();
+const apiBodyParser = bodyParser({ jsonLimit: '32mb', textLimit: '32mb' });
 
 // Middleware: parse request body for custom /api routes
 server.app.use(async (ctx, next) => {
@@ -86,11 +115,77 @@ try {
   console.warn('[SERVER] Could not initialize Meiji Town webhook:', e.message);
 }
 
-router.get('/api/games', (ctx) => {
-  const isAdmin = ctx.query.admin === 'true' || ctx.query.admin === '1' || ctx.query.all === 'true' || ctx.query.all === '1';
+// API: Get all enabled games metadata (or all games including published sandboxes if admin)
+router.get('/api/games', async (ctx) => {
+  await sandboxStoreReady;
+  const authResult = await resolveRequestAdmin(ctx);
+  const baseGames = gameLoader.getMetadata({ isAdmin: authResult.isAdmin });
+  const publishedGames = authResult.isAdmin ? publishedSandboxStore.getCatalogEntries() : [];
   ctx.body = {
-    games: gameLoader.getMetadata({ isAdmin })
+    games: [...baseGames, ...publishedGames]
   };
+});
+
+// API: Publish or update an Admin-Only sandbox game bundle (HMAC-signed server-to-server from tfdtaskmanager)
+router.post('/api/admin/published-sandboxes', async (ctx) => {
+  await sandboxStoreReady;
+  const sigCheck = verifyPublishSignature(ctx);
+  if (!sigCheck.ok) {
+    ctx.status = 403;
+    ctx.body = { error: sigCheck.reason || 'Forbidden' };
+    return;
+  }
+
+  try {
+    const record = await publishedSandboxStore.publishSandbox(ctx.request.body || {});
+    ctx.body = {
+      success: true,
+      sandboxId: record.sandboxId,
+      slug: record.slug,
+      version: record.version,
+      publishedAt: record.publishedAt
+    };
+  } catch (err) {
+    ctx.status = 400;
+    ctx.body = { error: err.message };
+  }
+});
+
+// API: Unpublish a sandbox game from the lobby
+router.delete('/api/admin/published-sandboxes/:sandboxId', async (ctx) => {
+  await sandboxStoreReady;
+  const sigCheck = verifyPublishSignature(ctx);
+  if (!sigCheck.ok) {
+    ctx.status = 403;
+    ctx.body = { error: sigCheck.reason || 'Forbidden' };
+    return;
+  }
+
+  try {
+    const removed = await publishedSandboxStore.unpublishSandbox(ctx.params.sandboxId);
+    ctx.body = { success: true, removed };
+  } catch (err) {
+    ctx.status = 400;
+    ctx.body = { error: err.message };
+  }
+});
+
+// Serve baked static assets for published sandbox games (strict CSP for SVG safety)
+router.get('/published-sandbox-assets/:sandboxId/:filename', async (ctx) => {
+  await sandboxStoreReady;
+  const fullPath = publishedSandboxStore.resolveAssetPath(ctx.params.sandboxId, ctx.params.filename);
+  if (!fullPath) {
+    ctx.status = 404;
+    return;
+  }
+
+  ctx.set('X-Content-Type-Options', 'nosniff');
+  ctx.set('Cache-Control', 'public, max-age=300');
+  if (fullPath.endsWith('.svg')) {
+    ctx.set('Content-Security-Policy', "sandbox; default-src 'none'; style-src 'unsafe-inline'");
+    ctx.type = 'image/svg+xml';
+  }
+  await send(ctx, path.basename(fullPath), { root: path.dirname(fullPath) });
 });
 
 // Helper function to wipe orphaned and stale matches
@@ -220,9 +315,9 @@ router.post('/api/groups/:code/leave', (ctx) => {
 });
 
 router.post('/api/groups/:code/select-game', (ctx) => {
-  const { memberId, gameId } = ctx.request.body || {};
+  const { memberId, gameId, setupData } = ctx.request.body || {};
   try {
-    const group = groupManager.selectGame(ctx.params.code, memberId, gameId);
+    const group = groupManager.selectGame(ctx.params.code, memberId, gameId, setupData);
     ctx.body = { group };
   } catch (err) {
     ctx.status = 400;
@@ -271,11 +366,20 @@ router.post('/api/groups/:code/play-again', async (ctx) => {
 
     if (result.allPlayAgain && group && group.selectedGameId) {
       const numPlayers = group.members.length || 2;
-      const setupData = group.setupData || {};
+      const setupData = { ...(group.setupData || {}) };
+      let transportGameId = group.selectedGameId;
+      const sandboxMatch = /^sandbox-(\d+)$/.exec(group.selectedGameId);
+      if (sandboxMatch) {
+        transportGameId = 'sandbox-runner';
+        setupData.publishedSandboxId = setupData.publishedSandboxId || Number(sandboxMatch[1]);
+      }
       try {
-        const createRes = await fetch(`http://127.0.0.1:${port}/games/${group.selectedGameId}/create`, {
+        const createRes = await fetch(`http://127.0.0.1:${port}/games/${transportGameId}/create`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'X-TFD-Internal': INTERNAL_LOOPBACK_TOKEN
+          },
           body: JSON.stringify({ numPlayers, setupData })
         });
         if (createRes.ok) {
@@ -346,7 +450,13 @@ server.app.use(serve(publicDir));
 
 // Fallback to index.html for SPA client navigation
 server.app.use(async (ctx, next) => {
-  if (ctx.method === 'GET' && !ctx.path.startsWith('/api') && !ctx.path.startsWith('/games') && !ctx.path.startsWith('/game_modules')) {
+  if (
+    ctx.method === 'GET' &&
+    !ctx.path.startsWith('/api') &&
+    !ctx.path.startsWith('/games') &&
+    !ctx.path.startsWith('/game_modules') &&
+    !ctx.path.startsWith('/published-sandbox-assets')
+  ) {
     await send(ctx, 'index.html', { root: publicDir });
   } else {
     await next();

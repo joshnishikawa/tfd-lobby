@@ -162,13 +162,39 @@
 
     <!-- VIEW 3: ACTIVE MATCH / LIVE GAME BOARD -->
     <section id="viewMatchBoard" class="match-board-view hidden">
-      <div class="match-nav-actions">
-        <button class="btn-pill btn-to-lobby" onclick="exitToLobby()" title="To Lobby">
-          <i class="bi bi-arrow-left"></i> <span data-i18n="match.toLobby">To Lobby</span>
-        </button>
-        <button class="btn-pill btn-play-again hidden" id="btnPlayAgain" onclick="handlePlayAgain()">
-          <i class="bi bi-arrow-repeat"></i> <span id="playAgainLabel" data-i18n="match.playAgain">Play Again</span>
-        </button>
+      <div class="match-nav-actions" id="matchNavbar">
+        <div class="match-nav-group match-nav-left">
+          <button class="btn-pill btn-to-lobby" onclick="exitToLobby()" title="To Lobby">
+            <i class="bi bi-arrow-left"></i> <span data-i18n="match.toLobby">Lobby</span>
+          </button>
+          <button class="btn-pill btn-play-again hidden" id="btnPlayAgain" onclick="handlePlayAgain()">
+            <i class="bi bi-arrow-repeat"></i> <span id="playAgainLabel" data-i18n="match.playAgain">Play Again</span>
+          </button>
+          <div class="match-nav-slot match-nav-zoom hidden" id="matchNavZoom"></div>
+        </div>
+        <div class="match-nav-group match-nav-center">
+          <div class="match-nav-slot match-nav-logo hidden" id="matchNavLogo"></div>
+        </div>
+        <div class="match-nav-group match-nav-right">
+          <div class="match-nav-slot match-nav-links hidden" id="matchNavLinks"></div>
+          <div class="match-nav-slot match-nav-manual hidden" id="matchNavManual"></div>
+          <div class="match-nav-slot match-nav-devtools hidden" id="matchNavDevTools"></div>
+        </div>
+      </div>
+
+      <!-- Shared In-Game Manual Modal -->
+      <div class="modal-overlay match-manual-modal hidden" id="matchManualModal" onclick="if (event.target === this) closeMatchManualModal()">
+        <div class="modal-card match-manual-card">
+          <div class="modal-header match-manual-header">
+            <a id="matchManualExtLink" class="btn-pill match-nav-btn match-manual-ext-link hidden" href="#" target="_blank" rel="noopener noreferrer" title="Open in new tab" onclick="closeMatchManualModal()">
+              <span>New Tab</span> <i class="bi bi-box-arrow-up-right"></i>
+            </a>
+            <button class="btn-pill match-nav-btn match-manual-close-btn" type="button" onclick="closeMatchManualModal()" title="Close">
+              <span>Close</span> <i class="bi bi-x-lg"></i>
+            </button>
+          </div>
+          <div class="match-manual-body" id="matchManualBody"></div>
+        </div>
       </div>
 
       <!-- Embedded Board Container -->

@@ -47,7 +47,6 @@ export async function refreshTables(targetGameId) {
     const list = el(`tablesList_${gameId}`);
     if (!list) continue;
 
-    const game = state.games.find(g => g.id === gameId);
     const transportGameId = getTransportGameId(game || gameId);
 
     try {

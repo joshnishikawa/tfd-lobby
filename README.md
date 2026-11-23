@@ -19,7 +19,8 @@ The lobby provides a unified matchmaking experience with plug-and-play game modu
   - [1. `game.json` (Manifest Metadata)](#1-gamejson-manifest-metadata)
   - [2. `game.js` (Server & State Machine Logic)](#2-gamejs-server--state-machine-logic)
   - [3. `client.js` (Frontend UI & Real-Time Sync)](#3-clientjs-frontend-ui--real-time-sync)
-  - [4. `style.css` (Game Stylesheet)](#4-stylecss-game-stylesheet)
+  - [4. In-Game Navbar API (`matchConfig.navbar`)](#4-in-game-navbar-api-matchconfignavbar)
+  - [5. `style.css` (Game Stylesheet)](#5-stylecss-game-stylesheet)
 - [Step-by-Step: Adding a New Game Module](#step-by-step-adding-a-new-game-module)
 - [API Reference](#api-reference)
 - [Development & Deployment](#development--deployment)
@@ -275,7 +276,9 @@ When `mountClient(container, matchConfig)` is invoked, `matchConfig` contains:
   credentials: "abc...",    // boardgame.io player authentication token
   playerName: "Captain",    // Display name of local player
   mode: "normal",           // Selected game mode
-  setupData: { mode: "..."} // Custom setup data passed at table creation
+  setupData: { mode: "..."}, // Custom setup data passed at table creation
+  navbar: tfdMatchNavbar,   // Shared in-game top navbar API (also window.tfdMatchNavbar)
+  isAdmin: false            // Whether the current user has admin privileges
 }
 ```
 
@@ -359,7 +362,85 @@ window.GameModules['my-game'] = {
 
 ---
 
-### 4. `style.css` (Game Stylesheet)
+### 4. In-Game Navbar API (`matchConfig.navbar`)
+
+While a match is active, the lobby renders a dedicated top navigation strip above the Shadow DOM game board. Game modules should integrate with this shared navbar instead of building duplicate top bars for branding, manuals, zoom sliders, or admin/developer tools.
+
+#### Layout (3-Zone Bar)
+
+```
+Left:   [← Lobby] [Play Again*] [Zoom Slider]
+Center: [Game Logo]
+Right:  [Other Links...] [Manual] [⚙]
+```
+
+- **Left:** `← Lobby` and `Play Again` (shown when the match ends) are managed automatically by the lobby, followed by the optional **Zoom Slider**.
+- **Center:** **Game Logo** only.
+- **Right:** Optional **Other Links**, **Manual**, and **Developer Tools (`⚙`)** as an **icon-only gear button** that opens a dropdown menu (automatically hidden for non-admin users or when no tools are configured).
+- The lobby automatically resets all game-configured navbar slots when `unmountClient()` runs.
+
+#### API Methods (`matchConfig.navbar` / `window.tfdMatchNavbar`)
+
+| Method | Description |
+| :--- | :--- |
+| `navbar.configure(options)` | Populate or update the game's navbar slots (alias: `navbar.set(options)`). |
+| `navbar.updateZoom(value)` | Lightweight sync for the zoom slider and percentage readout (e.g. after mousewheel zoom or fit-to-view) without rebuilding the navbar. |
+| `navbar.openManual({ title, url, html })` | Programmatically open the lobby's built-in manual modal. |
+| `navbar.closeManual()` | Close the manual modal. |
+| `navbar.reset()` | Clear all game-provided slots (called automatically by the lobby on unmount). |
+
+#### `configure(options)` Reference
+
+| Option | Type | Description |
+| :--- | :--- | :--- |
+| `logo` | `string \| object` | Image URL string, `{ src, alt?, height?, invert?, title?, onClick? }`, or `{ text, icon?, title?, onClick? }`. Defaults to the game's `game.json` name & icon if omitted. |
+| `manual` | `string \| object` | URL string (opens in new tab), `{ label?, url, modal: true, title? }` (opens inside the lobby's iframe modal with a New Tab link), `{ label?, title?, html }` (inline HTML modal), or `{ label?, onClick }`. |
+| `links` | `Array<object>` | Extra buttons or links: `{ id?, label?, icon?, url?, onClick?, title?, active?, variant? }`. |
+| `zoom` | `object \| null` | Board zoom slider: `{ min?, max?, step?, value, onChange(val), onReset? }`. Clicking the percentage resets zoom via `onReset` (or resets to `1`). |
+| `devTools` | `Array<object>` | Items for the far-right gear dropdown (admin-only): `{ label, icon?, onClick?, url?, active?, danger?, divider? }`. Defaults to `game.json` `devTools` if omitted. |
+| `forceDevTools` | `boolean` | *(Optional)* Override the lobby's client-side admin check when the game has performed its own server-authoritative admin check. |
+
+#### Example Usage in `client.js`
+
+```javascript
+function mountMyGameClient(container, config) {
+  const navbar = (config && config.navbar) || window.tfdMatchNavbar;
+  let boardZoom = 1;
+
+  function applyZoom(val) {
+    boardZoom = Math.min(2, Math.max(0.5, Number(val) || 1));
+    const board = container.querySelector('#gameBoard');
+    if (board) board.style.transform = `scale(${boardZoom})`;
+    if (navbar) navbar.updateZoom(boardZoom);
+  }
+
+  if (navbar && typeof navbar.configure === 'function') {
+    navbar.configure({
+      logo: { src: '/game_modules/my-game/images/logo.png', alt: 'My Game' },
+      manual: { label: 'Manual', url: 'https://example.com/my-game/manual', modal: true, title: 'My Game Manual' },
+      links: [
+        { label: 'Center View', icon: 'bi-arrows-fullscreen', onClick: () => centerBoard() }
+      ],
+      zoom: {
+        min: 0.5,
+        max: 2,
+        step: 0.05,
+        value: boardZoom,
+        onChange: applyZoom,
+        onReset: () => applyZoom(1)
+      },
+      devTools: [
+        { label: 'Save / Load State', icon: 'bi-floppy', onClick: () => openStateModal() },
+        { label: 'Reset Board', icon: 'bi-arrow-counterclockwise', danger: true, divider: true, onClick: () => resetBoard() }
+      ]
+    });
+  }
+}
+```
+
+---
+
+### 5. `style.css` (Game Stylesheet)
 
 Custom styles loaded specifically when a match of this game begins.
 

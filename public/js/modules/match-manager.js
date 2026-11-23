@@ -2,8 +2,9 @@
  * The Flying Dutchmen - Match Lifecycle, Game Mounting & Rematch Manager
  */
 
-import { state, el, escapeHtml, showToast, getTransportGameId, buildMatchSetupData } from './state.js';
+import { state, el, escapeHtml, showToast, isUserAdmin, getTransportGameId, buildMatchSetupData } from './state.js';
 import { t } from './i18n.js';
+import { matchNavbar } from './match-navbar.js';
 
 let switchFlowHandler = null;
 let leaveGroupHandler = null;
@@ -94,7 +95,7 @@ const origClearInterval = window.clearInterval.bind(window);
       }
       const wrappedListener = function (event, ...rest) {
         if (!document.body.classList.contains('in-game')) return;
-        if (event && event.target && typeof event.target.closest === 'function' && event.target.closest('.match-nav-actions')) {
+        if (event && event.target && typeof event.target.closest === 'function' && event.target.closest('.match-nav-actions, .match-manual-modal')) {
           return;
         }
         return listener.call(this, event, ...rest);
@@ -235,7 +236,8 @@ export function unmountGameClient() {
     try { window.speechSynthesis.cancel(); } catch (e) {}
   }
 
-  // 8. Clear board mount container DOM
+  // 8. Reset game-configured navbar slots and clear board mount container DOM
+  matchNavbar.reset();
   if (container) {
     container.innerHTML = '';
   }
@@ -533,9 +535,34 @@ export function mountGameClient(matchConfig) {
   mountRoot.style.cssText = 'width: 100%; height: 100%; display: flex; flex-direction: column;';
   shadowRoot.appendChild(mountRoot);
 
+  matchNavbar.reset();
+  const catalogId = matchConfig.catalogGameId || matchConfig.gameName;
+  const catalogGame = state.games.find((g) => g.id === catalogId || g.id === gameName);
+  const userIsAdmin = isUserAdmin(state.currentUser) || Boolean(window.tfdNavbar && isUserAdmin(window.tfdNavbar.currentUser));
+  if (catalogGame) {
+    const manifestDevTools = Array.isArray(catalogGame.devTools)
+      ? catalogGame.devTools.map((tool) => ({
+          label: tool.name || tool.label || 'Tool',
+          icon: tool.icon || 'bi-tools',
+          url: tool.url,
+          title: tool.description || tool.name
+        }))
+      : [];
+    matchNavbar.configure({
+      logo: { text: matchConfig.gameTitle || catalogGame.name, icon: catalogGame.icon || 'bi-dice-5' },
+      devTools: manifestDevTools
+    });
+  }
+
+  const enrichedConfig = {
+    ...matchConfig,
+    navbar: matchNavbar,
+    isAdmin: userIsAdmin
+  };
+
   const doMount = () => {
     if (window.GameModules && window.GameModules[gameName] && typeof window.GameModules[gameName].mountClient === 'function') {
-      window.GameModules[gameName].mountClient(mountRoot, matchConfig);
+      window.GameModules[gameName].mountClient(mountRoot, enrichedConfig);
       return true;
     }
     return false;

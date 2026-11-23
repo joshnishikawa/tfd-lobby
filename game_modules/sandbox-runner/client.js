@@ -33,19 +33,24 @@
     const credentials = (config && config.credentials) || '';
     const playerName = (config && config.playerName) || 'Admin';
     const gameTitle = (config && config.gameTitle) || 'Sandbox Playtest';
+    const navbar = (config && config.navbar) || window.tfdMatchNavbar || null;
 
     container.innerHTML = `
       <div class="sr-root" tabindex="0">
         <header class="sr-topbar">
-          <div class="sr-top-left">
-            <span class="sr-title" title="${escapeHtml(gameTitle)}">${escapeHtml(gameTitle)}</span>
-            <span class="sr-badge-admin">Admin Playtest</span>
-          </div>
+          ${navbar ? '' : `
+            <div class="sr-top-left">
+              <span class="sr-title" title="${escapeHtml(gameTitle)}">${escapeHtml(gameTitle)}</span>
+              <span class="sr-badge-admin">Admin Playtest</span>
+            </div>
+          `}
           <div class="sr-top-center" id="srTurnBar"></div>
-          <div class="sr-top-right">
-            <button type="button" class="sr-btn" id="srBtnCenter">Center View</button>
-            <button type="button" class="sr-btn sr-btn-amber" id="srBtnReset">Reset Table</button>
-          </div>
+          ${navbar ? '' : `
+            <div class="sr-top-right">
+              <button type="button" class="sr-btn" id="srBtnCenter">Center View</button>
+              <button type="button" class="sr-btn sr-btn-amber" id="srBtnReset">Reset Table</button>
+            </div>
+          `}
         </header>
 
         <div class="sr-middle">
@@ -120,7 +125,16 @@
 
     function applyCamera() {
       worldEl.style.transform = `translate(${cam.x}px, ${cam.y}px) scale(${cam.scale})`;
+      if (navbar && typeof navbar.updateZoom === 'function') {
+        navbar.updateZoom(cam.scale);
+      }
       renderCanvasHud();
+    }
+
+    function setCameraScale(nextScale) {
+      const clamped = Math.min(2.5, Math.max(0.2, Number(nextScale) || 0.85));
+      if (clamped === cam.scale) return;
+      zoomBy(clamped / cam.scale);
     }
 
     function screenToWorld(clientX, clientY) {
@@ -929,10 +943,58 @@
     window.addEventListener('keydown', onWindowKeyDown);
     window.addEventListener('keyup', onWindowKeyUp);
 
-    q('#srBtnCenter').onclick = () => fitCameraToObjects();
-    q('#srBtnReset').onclick = () => {
-      sendMove('resetTable', []);
-    };
+    const btnCenter = q('#srBtnCenter');
+    if (btnCenter) btnCenter.onclick = () => fitCameraToObjects();
+    const btnReset = q('#srBtnReset');
+    if (btnReset) {
+      btnReset.onclick = () => {
+        sendMove('resetTable', []);
+      };
+    }
+
+    if (navbar && typeof navbar.configure === 'function') {
+      navbar.configure({
+        logo: { text: gameTitle, icon: 'bi-grid-1x2-fill' },
+        manual: {
+          label: 'Controls',
+          title: `${gameTitle} Controls`,
+          html: `
+            <h4>Tabletop Navigation</h4>
+            <ul>
+              <li><strong>Space + Drag</strong> or <strong>Middle-Click Drag</strong>: Pan camera</li>
+              <li><strong>Mouse Wheel</strong> or <strong>Navbar Zoom Slider</strong>: Zoom in/out</li>
+              <li><strong>Center View</strong>: Fit camera to all tabletop objects</li>
+            </ul>
+            <h4>Object Controls</h4>
+            <ul>
+              <li><strong>Drag</strong>: Move cards, tokens, decks, and zones</li>
+              <li><strong>Right-Click</strong>: Context menu (Draw, Shuffle, Peek, Lock, Take to Hand)</li>
+              <li><strong>F</strong>: Flip selected card(s) · <strong>T</strong>: Tap 90° · <strong>R</strong>: Rotate +90°</li>
+              <li><strong>Hold Alt</strong>: High-resolution card preview</li>
+            </ul>
+          `
+        },
+        links: [
+          { label: 'Center View', icon: 'bi-arrows-fullscreen', onClick: () => fitCameraToObjects() }
+        ],
+        zoom: {
+          min: 0.2,
+          max: 2.5,
+          step: 0.05,
+          value: cam.scale,
+          onChange: (val) => setCameraScale(val),
+          onReset: () => fitCameraToObjects()
+        },
+        devTools: [
+          {
+            label: 'Reset Table',
+            icon: 'bi-arrow-counterclockwise',
+            danger: true,
+            onClick: () => sendMove('resetTable', [])
+          }
+        ]
+      });
+    }
     modalBackdrop.addEventListener('click', (e) => {
       if (e.target === modalBackdrop) closeModal();
     });

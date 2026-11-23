@@ -73,10 +73,19 @@ export function saveGuestName(name) {
 }
 
 /**
- * Sync player name inputs and guest name field with current user or saved guest name
+ * Resolve the active player display name (custom saved name > logged-in username > fallback)
+ * @param {string} [fallback]
+ * @returns {string}
+ */
+export function getActivePlayerName(fallback = '') {
+  return getSavedGuestName() || (state.currentUser ? state.currentUser.username : '') || fallback;
+}
+
+/**
+ * Sync player name inputs and display name field with custom name or current user
  */
 export function syncPlayerNameUI() {
-  const activeName = state.currentUser ? state.currentUser.username : getSavedGuestName();
+  const activeName = getActivePlayerName();
   ['guestNameInput', 'createPlayerName', 'joinPlayerName', 'createPartyHostName', 'joinPartyMemberName'].forEach((id) => {
     const input = el(id);
     if (input && document.activeElement !== input) {
@@ -85,17 +94,13 @@ export function syncPlayerNameUI() {
   });
 
   const btn = el('guestNameBtn');
-  if (!btn) return;
-
-  if (state.currentUser) {
-    btn.classList.add('hidden');
-  } else {
+  if (btn) {
     btn.classList.remove('hidden');
   }
 }
 
 /**
- * Resolve guest display name from inline field or saved state
+ * Resolve player display name from inline field, saved custom name, or logged-in username
  * @returns {string}
  */
 export function promptForName() {
@@ -105,7 +110,7 @@ export function promptForName() {
     saveGuestName(typed);
     return typed;
   }
-  return getSavedGuestName() || 'Player';
+  return getActivePlayerName('Player');
 }
 
 /**

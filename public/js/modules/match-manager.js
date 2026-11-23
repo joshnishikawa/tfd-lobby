@@ -2,7 +2,7 @@
  * The Flying Dutchmen - Match Lifecycle, Game Mounting & Rematch Manager
  */
 
-import { state, el, escapeHtml, showToast, isUserAdmin, getTransportGameId, buildMatchSetupData } from './state.js';
+import { state, el, escapeHtml, showToast, isUserAdmin, getActivePlayerName, getTransportGameId, buildMatchSetupData } from './state.js';
 import { t } from './i18n.js';
 import { matchNavbar } from './match-navbar.js';
 
@@ -613,7 +613,7 @@ export async function syncMatchParty(matchConfig) {
   const matchId = cfg.matchID || cfg.matchId;
   const gameId = cfg.catalogGameId || cfg.gameName || cfg.gameId || 'tic-tac-toe';
   const playerSeat = cfg.playerID !== undefined ? String(cfg.playerID) : '0';
-  const memberName = cfg.playerName || (state.currentUser ? state.currentUser.username : `Player ${parseInt(playerSeat, 10) + 1}`);
+  const memberName = cfg.playerName || getActivePlayerName(`Player ${parseInt(playerSeat, 10) + 1}`);
   const mode = cfg.mode || (cfg.setupData && cfg.setupData.mode) || 'normal';
 
   if (!matchId) return;
@@ -765,7 +765,7 @@ export async function createDirectRematch(active) {
   const setupData = { ...buildMatchSetupData(game || catalogGameId, mode), ...(active.setupData || {}), mode };
   const isSolo = game && game.maxPlayers === 1;
   const numPlayers = isSolo ? 1 : 2;
-  const playerName = active.playerName || (state.currentUser ? state.currentUser.username : 'Player 1');
+  const playerName = active.playerName || getActivePlayerName('Player 1');
   const prevSeat = active.playerID !== undefined ? String(active.playerID) : '0';
   const nextSeat = isSolo ? '0' : (prevSeat === '0' ? '1' : '0');
 
@@ -860,7 +860,7 @@ export async function transitionToNewMatch(group) {
   const catalogGameId = group.selectedGameId || (state.activeMatch && (state.activeMatch.catalogGameId || state.activeMatch.gameName)) || 'tic-tac-toe';
   const game = state.games.find(g => g.id === catalogGameId);
   const transportGameId = getTransportGameId(game || catalogGameId);
-  const playerName = state.currentMember ? state.currentMember.name : (state.currentUser ? state.currentUser.username : `Player ${parseInt(playerID, 10) + 1}`);
+  const playerName = state.currentMember ? state.currentMember.name : getActivePlayerName(`Player ${parseInt(playerID, 10) + 1}`);
   const mode = (group.setupData && group.setupData.mode) || (state.activeMatch && state.activeMatch.mode) || 'normal';
   const setupData = { ...buildMatchSetupData(game || catalogGameId, mode), ...(group.setupData || {}) };
 

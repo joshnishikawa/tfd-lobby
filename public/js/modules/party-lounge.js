@@ -8,7 +8,7 @@ import {
   escapeHtml,
   showToast,
   isSinglePlayerGame,
-  getSavedGuestName,
+  getActivePlayerName,
   saveGuestName,
   getTransportGameId,
   buildMatchSetupData
@@ -145,8 +145,8 @@ export function updatePartyGamePreview() {
 export async function handleCreateGroup() {
   const nameInput = el('createPartyHostName');
   const typedName = (nameInput && nameInput.value.trim()) || '';
-  if (!state.currentUser && typedName) saveGuestName(typedName);
-  const hostName = typedName || (state.currentUser ? state.currentUser.username : getSavedGuestName());
+  if (typedName) saveGuestName(typedName);
+  const hostName = typedName || getActivePlayerName();
   if (!hostName) {
     showToast('Please enter your name', 'warning');
     if (nameInput) nameInput.focus();
@@ -182,8 +182,8 @@ export async function handleJoinGroup() {
   const nameInput = el('joinPartyMemberName');
   const code = (codeInput && codeInput.value.trim().toUpperCase()) || '';
   const typedName = (nameInput && nameInput.value.trim()) || '';
-  if (!state.currentUser && typedName) saveGuestName(typedName);
-  const memberName = typedName || (state.currentUser ? state.currentUser.username : getSavedGuestName());
+  if (typedName) saveGuestName(typedName);
+  const memberName = typedName || getActivePlayerName();
 
   if (!code) {
     showToast('Please enter a party code', 'warning');

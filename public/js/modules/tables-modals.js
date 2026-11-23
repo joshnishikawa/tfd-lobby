@@ -8,7 +8,7 @@ import {
   escapeHtml,
   showToast,
   isSinglePlayerGame,
-  getSavedGuestName,
+  getActivePlayerName,
   saveGuestName,
   syncPlayerNameUI,
   getTransportGameId,
@@ -204,8 +204,8 @@ export async function submitCreateTable() {
   const gameId = el('createGameSelect').value;
   const numPlayers = parseInt(el('createNumPlayers').value, 10) || 2;
   const typedName = el('createPlayerName').value.trim();
-  if (!state.currentUser && typedName) saveGuestName(typedName);
-  const playerName = typedName || (state.currentUser ? state.currentUser.username : (getSavedGuestName() || 'Player 1'));
+  if (typedName) saveGuestName(typedName);
+  const playerName = typedName || getActivePlayerName('Player 1');
   const game = state.games.find(g => g.id === gameId);
   const selectedMode = (state.selectedGameMode && state.selectedGameMode[gameId]) || (game && game.modes && game.modes[0] ? game.modes[0].id : 'normal');
   const transportGameId = getTransportGameId(game || gameId);
@@ -323,8 +323,8 @@ export async function submitJoinTable() {
   const mode = currentModalMode || 'normal';
   const playerID = el('joinSeatSelect').value;
   const typedName = el('joinPlayerName').value.trim();
-  if (!state.currentUser && typedName) saveGuestName(typedName);
-  const playerName = typedName || (state.currentUser ? state.currentUser.username : (getSavedGuestName() || `Player ${parseInt(playerID, 10) + 1}`));
+  if (typedName) saveGuestName(typedName);
+  const playerName = typedName || getActivePlayerName(`Player ${parseInt(playerID, 10) + 1}`);
 
   const game = state.games.find(g => g.id === gameId);
   const transportGameId = getTransportGameId(game || gameId);

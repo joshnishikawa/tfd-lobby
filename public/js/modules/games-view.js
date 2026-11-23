@@ -229,7 +229,7 @@ export async function handleQuickMatch(targetGameId) {
   const game = state.games.find(g => g.id === gameId);
   if (!game) return;
 
-  const playerName = state.currentUser ? state.currentUser.username : promptForName();
+  const playerName = promptForName();
   if (!playerName) return;
 
   const modes = game.modes || [];

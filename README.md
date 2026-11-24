@@ -19,7 +19,7 @@ The lobby provides a unified matchmaking experience with plug-and-play game modu
   - [1. `game.json` (Manifest Metadata)](#1-gamejson-manifest-metadata)
   - [2. `game.js` (Server & State Machine Logic)](#2-gamejs-server--state-machine-logic)
   - [3. `client.js` (Frontend UI & Real-Time Sync)](#3-clientjs-frontend-ui--real-time-sync)
-  - [4. In-Game Navbar API (`matchConfig.navbar`)](#4-in-game-navbar-api-matchconfignavbar)
+  - [4. In-Game Toolbar (`game.json` & `matchConfig.toolbar`)](#4-in-game-toolbar-gamejson--matchconfigtoolbar)
   - [5. `style.css` (Game Stylesheet)](#5-stylecss-game-stylesheet)
 - [Step-by-Step: Adding a New Game Module](#step-by-step-adding-a-new-game-module)
 - [API Reference](#api-reference)
@@ -188,6 +188,15 @@ Defines game metadata, supported player counts, and optional gameplay modes.
 | `maxPlayers` | `number` | Maximum players allowed (default: `2`). |
 | `status` | `string` | `"active"` or `"inactive"`. Inactive games are ignored by `GameLoader`. |
 | `icon` | `string` | Bootstrap Icons class name (e.g., `bi-dice-5`, `bi-grid-3x3`). |
+| `toolbar` | `object` | *(Optional)* Declarative in-game toolbar config: `{ logo, manual, zoom, audio, language, saveLoad, newGame, links }`. Relative paths resolve to `/game_modules/<game-id>/...`. |
+| `toolbar.logo` | `string \| object` | Logo image path (e.g. `"images/logo.png"`) or `{ src, alt?, invert?, height? }`, or `{ text, icon? }`. |
+| `toolbar.manual` | `string \| object` | Rulebook/manual URL (e.g. `"rules.html"` or `https://...`) or `{ label?, url, modal?, title? }`. String URLs open in the full-screen manual modal. |
+| `toolbar.zoom` | `boolean \| object` | *(Optional)* Board zoom slider config. Defaults to `50%–200%` (`{ min: 0.5, max: 2, step: 0.01, default: 1 }`). Set to `false` to hide the zoom slider (e.g. for games with custom 3D camera zoom). |
+| `toolbar.audio` | `boolean` | *(Optional, default `false`)* Enable the toolbar volume slider & mute button (alias: `toolbar.volume`). |
+| `toolbar.language` | `boolean` | *(Optional, default `false`)* Enable the toolbar language selector (`EN` / `日本語` / `ES`). |
+| `toolbar.saveLoad` | `boolean` | *(Optional, default `false`)* Enable the shared Save / Load Game State modal in the developer tools gear menu (paired with `saveLoad: { getState, loadState }` in `toolbar.configure(...)`). |
+| `toolbar.newGame` | `boolean` | *(Optional, default `false`)* Show a **New Game** button in the toolbar. |
+| `toolbar.links` | `object[]` | Extra toolbar links: `{ label, icon?, url, title? }`. |
 | `tags` | `string[]` | Categories/tags for filtering. |
 | `modes` | `object[]` | *(Optional)* Available game modes/variants. |
 | `modes[].id` | `string` | Mode identifier passed to `setupData.mode`. |
@@ -277,7 +286,7 @@ When `mountClient(container, matchConfig)` is invoked, `matchConfig` contains:
   playerName: "Captain",    // Display name of local player
   mode: "normal",           // Selected game mode
   setupData: { mode: "..."}, // Custom setup data passed at table creation
-  navbar: tfdMatchNavbar,   // Shared in-game top navbar API (also window.tfdMatchNavbar)
+  toolbar: tfdMatchToolbar, // Shared in-game top toolbar API (also window.tfdMatchToolbar)
   isAdmin: false            // Whether the current user has admin privileges
 }
 ```
@@ -362,75 +371,101 @@ window.GameModules['my-game'] = {
 
 ---
 
-### 4. In-Game Navbar API (`matchConfig.navbar`)
+### 4. In-Game Toolbar (`game.json` & `matchConfig.toolbar`)
 
-While a match is active, the lobby renders a dedicated top navigation strip above the Shadow DOM game board. Game modules should integrate with this shared navbar instead of building duplicate top bars for branding, manuals, zoom sliders, or admin/developer tools.
+While a match is active, the lobby renders a dedicated top **toolbar** above the Shadow DOM game board. Game modules should integrate with this shared toolbar instead of building duplicate top bars for branding, manuals, zoom sliders, Save / Load State modals, or admin/developer tools.
 
 #### Layout (3-Zone Bar)
 
 ```
-Left:   [← Lobby] [Play Again*] [Zoom Slider]
+Left:   [← Lobby] [Play Again*] [#GameCode] [Zoom Slider]
 Center: [Game Logo]
-Right:  [Other Links...] [Manual] [⚙]
+Right:  [Other Links...] [Manual] [Volume / Mute] [Language] [⚙]
 ```
 
-- **Left:** `← Lobby` and `Play Again` (shown when the match ends) are managed automatically by the lobby, followed by the optional **Zoom Slider**.
-- **Center:** **Game Logo** only.
-- **Right:** Optional **Other Links**, **Manual**, and **Developer Tools (`⚙`)** as an **icon-only gear button** that opens a dropdown menu (automatically hidden for non-admin users or when no tools are configured).
-- The lobby automatically resets all game-configured navbar slots when `unmountClient()` runs.
+- **Left:** `← Lobby`, `Play Again` (shown when the match ends), and `#GameCode` (click to copy) are managed automatically by the lobby, followed by the configurable **Zoom Slider** (defaults to `50%–200%`; set `toolbar.zoom: false` in `game.json` to hide).
+- **Center:** **Game Logo** only (flush top-to-bottom with zero padding/margin).
+- **Right:** Optional **Other Links**, **Manual / Rules** (opens in a full-screen modal with `New Tab` and `Close`), built-in **Volume / Mute** (controls all game `<audio>`/`AudioContext` instances and dispatches `tfd-audio-change`), **Language** selector (`EN` / `日本語` / `ES`, dispatches `tfd-language-change`), and **Developer Tools (`⚙`)** as an **icon-only gear button** that opens a dropdown menu (automatically hidden for non-admin users or when no tools are configured).
+- The lobby automatically resets all game-configured toolbar slots when `unmountClient()` runs.
 
-#### API Methods (`matchConfig.navbar` / `window.tfdMatchNavbar`)
+#### Declarative Config via `game.json` (Zero JS Required)
+
+Add a `"toolbar"` block to `game.json` to configure your logo, rulebook/manual (prefer a standalone `rules.html` file inside your game folder), and extra links without writing any client JS. Relative paths like `"images/logo.png"` or `"rules.html"` automatically resolve to `/game_modules/<game-id>/...`:
+
+```json
+{
+  "id": "my-game",
+  "name": "My Game",
+  "toolbar": {
+    "logo": { "src": "images/logo.png", "alt": "My Game", "invert": true },
+    "manual": { "label": "Rules", "url": "rules.html", "modal": true },
+    "links": [
+      { "label": "Reference", "icon": "bi-journal-text", "url": "reference.html" }
+    ]
+  }
+}
+```
+
+Any field configured in `game.json` is automatically applied before `mountClient()` runs and preserved when `toolbar.configure(...)` is called later (pass `null` for a field to explicitly hide it).
+
+#### API Methods (`matchConfig.toolbar` / `window.tfdMatchToolbar`)
 
 | Method | Description |
 | :--- | :--- |
-| `navbar.configure(options)` | Populate or update the game's navbar slots (alias: `navbar.set(options)`). |
-| `navbar.updateZoom(value)` | Lightweight sync for the zoom slider and percentage readout (e.g. after mousewheel zoom or fit-to-view) without rebuilding the navbar. |
-| `navbar.openManual({ title, url, html })` | Programmatically open the lobby's built-in manual modal. |
-| `navbar.closeManual()` | Close the manual modal. |
-| `navbar.reset()` | Clear all game-provided slots (called automatically by the lobby on unmount). |
+| `toolbar.configure(options)` | Populate or update the game's toolbar slots (alias: `toolbar.set(options)`). Merges with `game.json` defaults. |
+| `toolbar.updateZoom(value)` | Lightweight sync for the zoom slider and percentage readout (e.g. after mousewheel zoom or fit-to-view) without rebuilding the toolbar. |
+| `toolbar.openManual({ title, url, html })` | Programmatically open the lobby's full-screen manual modal. |
+| `toolbar.closeManual()` | Close the manual modal. |
+| `toolbar.openSaveLoad()` | Programmatically open the lobby's shared Save / Load Game State modal. |
+| `toolbar.closeSaveLoad()` | Close the Save / Load Game State modal. |
+| `toolbar.reset()` | Clear all game-provided slots (called automatically by the lobby on unmount). |
 
 #### `configure(options)` Reference
 
 | Option | Type | Description |
 | :--- | :--- | :--- |
-| `logo` | `string \| object` | Image URL string, `{ src, alt?, height?, invert?, title?, onClick? }`, or `{ text, icon?, title?, onClick? }`. Defaults to the game's `game.json` name & icon if omitted. |
-| `manual` | `string \| object` | URL string (opens in new tab), `{ label?, url, modal: true, title? }` (opens inside the lobby's iframe modal with a New Tab link), `{ label?, title?, html }` (inline HTML modal), or `{ label?, onClick }`. |
+| `logo` | `string \| object` | Image URL string, `{ src, alt?, height?, invert?, title?, onClick? }`, or `{ text, icon?, title?, onClick? }`. Defaults to `game.json` `toolbar.logo` (or game `name` & `icon`). |
+| `manual` | `string \| object` | URL string or `{ label?, url, modal: true, title? }` (opens inside the full-screen iframe modal with a `New Tab` button that closes the modal on click), or `{ label?, onClick }`. |
 | `links` | `Array<object>` | Extra buttons or links: `{ id?, label?, icon?, url?, onClick?, title?, active?, variant? }`. |
 | `zoom` | `object \| null` | Board zoom slider: `{ min?, max?, step?, value, onChange(val), onReset? }`. Clicking the percentage resets zoom via `onReset` (or resets to `1`). |
-| `devTools` | `Array<object>` | Items for the far-right gear dropdown (admin-only): `{ label, icon?, onClick?, url?, active?, danger?, divider? }`. Defaults to `game.json` `devTools` if omitted. |
+| `saveLoad` | `object \| null` | Shared admin Save / Load Game State integration: `{ getState(), loadState(snapshot), storageKey?, label? }`. Automatically adds **Save / Load State** to the far-right gear menu with Quick Save/Load, Named Snapshots, and JSON Copy/Import. |
+| `devTools` | `Array<object>` | Extra items for the far-right gear dropdown (admin-only): `{ label, icon?, onClick?, url?, active?, danger?, divider? }`. |
 | `forceDevTools` | `boolean` | *(Optional)* Override the lobby's client-side admin check when the game has performed its own server-authoritative admin check. |
 
 #### Example Usage in `client.js`
 
 ```javascript
 function mountMyGameClient(container, config) {
-  const navbar = (config && config.navbar) || window.tfdMatchNavbar;
+  const toolbar = (config && config.toolbar) || window.tfdMatchToolbar;
   let boardZoom = 1;
 
   function applyZoom(val) {
     boardZoom = Math.min(2, Math.max(0.5, Number(val) || 1));
     const board = container.querySelector('#gameBoard');
-    if (board) board.style.transform = `scale(${boardZoom})`;
-    if (navbar) navbar.updateZoom(boardZoom);
+    if (board) board.style.zoom = String(boardZoom);
+    if (toolbar) toolbar.updateZoom(boardZoom);
   }
 
-  if (navbar && typeof navbar.configure === 'function') {
-    navbar.configure({
-      logo: { src: '/game_modules/my-game/images/logo.png', alt: 'My Game' },
-      manual: { label: 'Manual', url: 'https://example.com/my-game/manual', modal: true, title: 'My Game Manual' },
+  if (toolbar && typeof toolbar.configure === 'function') {
+    toolbar.configure({
+      // logo & manual are inherited automatically from game.json "toolbar"
       links: [
         { label: 'Center View', icon: 'bi-arrows-fullscreen', onClick: () => centerBoard() }
       ],
       zoom: {
         min: 0.5,
         max: 2,
-        step: 0.05,
+        step: 0.01,
         value: boardZoom,
         onChange: applyZoom,
         onReset: () => applyZoom(1)
       },
+      saveLoad: {
+        storageKey: 'my-game',
+        getState: () => ({ G: currentState.G, phase: currentState.ctx.phase, turn: currentState.ctx.turn }),
+        loadState: (snapshot) => sendMove('loadSaveState', [snapshot])
+      },
       devTools: [
-        { label: 'Save / Load State', icon: 'bi-floppy', onClick: () => openStateModal() },
         { label: 'Reset Board', icon: 'bi-arrow-counterclockwise', danger: true, divider: true, onClick: () => resetBoard() }
       ]
     });
@@ -445,6 +480,7 @@ function mountMyGameClient(container, config) {
 Custom styles loaded specifically when a match of this game begins.
 
 - **Best Practice**: Prefix all CSS classes with a game-specific prefix (e.g. `.ttt-`, `.c4-`, `.chess-`) to prevent collisions with the lobby shell.
+- **Scrollable Board / Zoom Rule**: Never lock the root game container to `height: 100%; overflow: hidden;` when supporting zoom. Use `min-height: 100%; height: auto; flex: 1 0 auto; overflow: visible;` (and CSS `zoom` rather than `transform: scale()` for non-panning boards) so the lobby's scrollable `.game-mount-root` lets users scroll to the bottom of the board at any zoom level.
 - Use CSS variables defined in the lobby design system when possible:
   - `--bg-primary`, `--bg-card`, `--gold-primary`, `--gold-light`, `--text-primary`, `--text-muted`, `--border-color`, `--radius-md`.
 

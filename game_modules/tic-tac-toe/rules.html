@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tic Tac Toe — Rules</title>
+  <style>
+    :root { color-scheme: dark; }
+    body {
+      margin: 0;
+      padding: 2rem 1.5rem;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0d1117;
+      color: #e6edf3;
+      line-height: 1.6;
+    }
+    main { max-width: 720px; margin: 0 auto; }
+    h1 { margin: 0 0 1rem; color: #f6e05e; font-size: 1.75rem; }
+    h2 { margin: 1.5rem 0 0.5rem; color: #f6e05e; font-size: 1.2rem; }
+    ul { padding-left: 1.25rem; }
+    li { margin-bottom: 0.4rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Tic Tac Toe — Rules</h1>
+
+    <h2>Normal Mode</h2>
+    <p>Take turns placing <strong>X</strong> and <strong>O</strong> on a 3×3 grid. The first player to align 3 marks horizontally, vertically, or diagonally wins.</p>
+
+    <h2>Ultimate Mode</h2>
+    <ul>
+      <li>The board consists of 9 nested 3×3 sub-boards arranged in a larger 3×3 grid.</li>
+      <li>Whichever cell position you play inside a sub-board sends your opponent to the corresponding sub-board on the main grid.</li>
+      <li>If the target sub-board is already won or full, the opponent may play in any open sub-board.</li>
+      <li>Win 3 sub-boards in a row (horizontally, vertically, or diagonally) on the main grid to win the match.</li>
+    </ul>
+  </main>
+</body>
+</html>

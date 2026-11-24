@@ -204,12 +204,13 @@ async function cleanOrphanedMatches() {
       }
       const players = Object.values(metadata.players || {});
       const namedPlayers = players.filter(p => p && p.name);
-      const connectedPlayers = players.filter(p => p && p.isConnected);
+      const humanPlayers = namedPlayers.filter(p => !(p.data && p.data.isBot) && !p.name.endsWith('(Bot)'));
+      const connectedPlayers = humanPlayers.filter(p => p.isConnected);
       const age = now - (metadata.updatedAt || metadata.createdAt || 0);
 
-      // 1. Matches with 0 named players
-      if (namedPlayers.length === 0) {
-        console.log(`[CLEANUP] Wiping empty match ${matchId} (${metadata.gameName})`);
+      // 1. Matches with 0 human players (empty or bot-only)
+      if (humanPlayers.length === 0) {
+        console.log(`[CLEANUP] Wiping empty/bot-only match ${matchId} (${metadata.gameName})`);
         await server.db.wipe(matchId);
         wiped.push(matchId);
         continue;

@@ -54,46 +54,11 @@ function mountTicTacToeClient(container, config) {
     </div>
   `;
 
-  // Wire shared lobby in-game navbar
-  const navbar = (config && config.navbar) || window.tfdMatchNavbar;
-  let boardZoom = 1;
-  const applyBoardZoom = (val) => {
-    boardZoom = Math.min(1.5, Math.max(0.6, Number(val) || 1));
-    const gridMount = container.querySelector('#tttGridMount');
-    if (gridMount) {
-      gridMount.style.transform = `scale(${boardZoom})`;
-      gridMount.style.transformOrigin = 'top center';
-    }
-    if (navbar && typeof navbar.updateZoom === 'function') {
-      navbar.updateZoom(boardZoom);
-    }
-  };
-  if (navbar && typeof navbar.configure === 'function') {
-    navbar.configure({
-      logo: { text: isUltimate ? 'Ultimate Tic Tac Toe' : 'Tic Tac Toe', icon: 'bi-grid-3x3' },
-      manual: {
-        label: 'Rules',
-        title: 'Tic Tac Toe Rules',
-        html: `
-          <h4>Normal Mode</h4>
-          <p>Take turns placing <strong>X</strong> and <strong>O</strong> on a 3×3 grid. The first player to align 3 marks horizontally, vertically, or diagonally wins.</p>
-          <h4>Ultimate Mode</h4>
-          <ul>
-            <li>The board consists of 9 nested 3×3 sub-boards.</li>
-            <li>Whichever cell position you play inside a sub-board sends your opponent to the corresponding sub-board on the main grid.</li>
-            <li>If the target sub-board is already won or full, the opponent may play in any open sub-board.</li>
-            <li>Win 3 sub-boards in a row on the main grid to win the match.</li>
-          </ul>
-        `
-      },
-      zoom: {
-        min: 0.6,
-        max: 1.5,
-        step: 0.05,
-        value: boardZoom,
-        onChange: applyBoardZoom,
-        onReset: () => applyBoardZoom(1)
-      }
+  // Wire shared lobby in-game toolbar (manual & zoom are configured declaratively in game.json)
+  const toolbar = (config && config.toolbar) || window.tfdMatchToolbar;
+  if (toolbar && typeof toolbar.configure === 'function') {
+    toolbar.configure({
+      logo: { text: isUltimate ? 'Ultimate Tic Tac Toe' : 'Tic Tac Toe', icon: 'bi-grid-3x3' }
     });
   }
 

@@ -33,19 +33,19 @@
     const credentials = (config && config.credentials) || '';
     const playerName = (config && config.playerName) || 'Admin';
     const gameTitle = (config && config.gameTitle) || 'Sandbox Playtest';
-    const navbar = (config && config.navbar) || window.tfdMatchNavbar || null;
+    const toolbar = (config && config.toolbar) || window.tfdMatchToolbar || null;
 
     container.innerHTML = `
       <div class="sr-root" tabindex="0">
         <header class="sr-topbar">
-          ${navbar ? '' : `
+          ${toolbar ? '' : `
             <div class="sr-top-left">
               <span class="sr-title" title="${escapeHtml(gameTitle)}">${escapeHtml(gameTitle)}</span>
               <span class="sr-badge-admin">Admin Playtest</span>
             </div>
           `}
           <div class="sr-top-center" id="srTurnBar"></div>
-          ${navbar ? '' : `
+          ${toolbar ? '' : `
             <div class="sr-top-right">
               <button type="button" class="sr-btn" id="srBtnCenter">Center View</button>
               <button type="button" class="sr-btn sr-btn-amber" id="srBtnReset">Reset Table</button>
@@ -125,8 +125,8 @@
 
     function applyCamera() {
       worldEl.style.transform = `translate(${cam.x}px, ${cam.y}px) scale(${cam.scale})`;
-      if (navbar && typeof navbar.updateZoom === 'function') {
-        navbar.updateZoom(cam.scale);
+      if (toolbar && typeof toolbar.updateZoom === 'function') {
+        toolbar.updateZoom(cam.scale);
       }
       renderCanvasHud();
     }
@@ -952,28 +952,9 @@
       };
     }
 
-    if (navbar && typeof navbar.configure === 'function') {
-      navbar.configure({
+    if (toolbar && typeof toolbar.configure === 'function') {
+      toolbar.configure({
         logo: { text: gameTitle, icon: 'bi-grid-1x2-fill' },
-        manual: {
-          label: 'Controls',
-          title: `${gameTitle} Controls`,
-          html: `
-            <h4>Tabletop Navigation</h4>
-            <ul>
-              <li><strong>Space + Drag</strong> or <strong>Middle-Click Drag</strong>: Pan camera</li>
-              <li><strong>Mouse Wheel</strong> or <strong>Navbar Zoom Slider</strong>: Zoom in/out</li>
-              <li><strong>Center View</strong>: Fit camera to all tabletop objects</li>
-            </ul>
-            <h4>Object Controls</h4>
-            <ul>
-              <li><strong>Drag</strong>: Move cards, tokens, decks, and zones</li>
-              <li><strong>Right-Click</strong>: Context menu (Draw, Shuffle, Peek, Lock, Take to Hand)</li>
-              <li><strong>F</strong>: Flip selected card(s) · <strong>T</strong>: Tap 90° · <strong>R</strong>: Rotate +90°</li>
-              <li><strong>Hold Alt</strong>: High-resolution card preview</li>
-            </ul>
-          `
-        },
         links: [
           { label: 'Center View', icon: 'bi-arrows-fullscreen', onClick: () => fitCameraToObjects() }
         ],

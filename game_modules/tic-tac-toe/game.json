@@ -6,6 +6,28 @@
   "version": "1.0.0",
   "status": "active",
   "author": "The Flying Dutchmen",
+  "icon": "bi-grid-3x3",
+  "toolbar": {
+    "logo": {
+      "text": "Tic Tac Toe",
+      "icon": "bi-grid-3x3"
+    },
+    "manual": {
+      "label": "Rules",
+      "url": "rules.html",
+      "modal": true
+    },
+    "zoom": {
+      "min": 0.5,
+      "max": 2,
+      "default": 1
+    },
+    "audio": false,
+    "language": true,
+    "saveLoad": false,
+    "newGame": true,
+    "links": []
+  },
   "tags": [
     "classic",
     "strategy",

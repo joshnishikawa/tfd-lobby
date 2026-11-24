@@ -114,6 +114,7 @@ export async function refreshTables(targetGameId) {
         return `
           <div class="table-row ${isMyMatch ? 'my-active-table' : ''}">
             <div class="table-info-left">
+              <span class="table-code-badge" title="Game Code">#${escapeHtml(m.matchID)}</span>
               ${modeBadgeHtml}
               <span class="table-seats-badge"><i class="bi bi-people"></i> ${t('tables.playersRatio', { current: joinedCount, total: totalSeats })}</span>
             </div>

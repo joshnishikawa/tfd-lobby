@@ -4,7 +4,7 @@
 
 import { state, el, escapeHtml, showToast, isUserAdmin, getActivePlayerName, getTransportGameId, buildMatchSetupData } from './state.js';
 import { t } from './i18n.js';
-import { matchNavbar } from './match-navbar.js';
+import { matchToolbar } from './match-toolbar.js';
 
 let switchFlowHandler = null;
 let leaveGroupHandler = null;
@@ -15,6 +15,67 @@ const trackedAudioElements = new Set();
 const gameWindowListeners = [];
 const gameIntervals = new Set();
 let hasMountedGame = false;
+
+let currentAudioVolume = (() => {
+  try {
+    const saved = parseFloat(localStorage.getItem('tfd_audio_volume'));
+    return Number.isFinite(saved) ? Math.min(1, Math.max(0, saved)) : 1;
+  } catch (e) {
+    return 1;
+  }
+})();
+let currentAudioMuted = (() => {
+  try {
+    return localStorage.getItem('tfd_audio_muted') === 'true';
+  } catch (e) {
+    return false;
+  }
+})();
+
+export function getGameAudioState() {
+  return { volume: currentAudioVolume, muted: currentAudioMuted };
+}
+
+export function setGameAudioState({ volume, muted } = {}) {
+  if (volume !== undefined) {
+    const num = Number(volume);
+    if (Number.isFinite(num)) currentAudioVolume = Math.min(1, Math.max(0, num));
+  }
+  if (muted !== undefined) {
+    currentAudioMuted = Boolean(muted);
+  }
+  try {
+    localStorage.setItem('tfd_audio_volume', String(currentAudioVolume));
+    localStorage.setItem('tfd_audio_muted', String(currentAudioMuted));
+  } catch (e) {}
+
+  const effectivelyMuted = currentAudioMuted || currentAudioVolume <= 0;
+  trackedAudioElements.forEach((media) => {
+    try {
+      media.volume = currentAudioVolume;
+      media.muted = effectivelyMuted;
+    } catch (e) {}
+  });
+
+  if (document.body.classList.contains('in-game')) {
+    trackedAudioContexts.forEach((ctx) => {
+      if (!ctx || ctx.state === 'closed') return;
+      try {
+        if (effectivelyMuted) {
+          const suspendFn = ctx.__tfdOrigSuspend || ctx.suspend.bind(ctx);
+          suspendFn().catch(() => {});
+        } else if (ctx.state === 'suspended') {
+          const resumeFn = ctx.__tfdOrigResume || ctx.resume.bind(ctx);
+          resumeFn().catch(() => {});
+        }
+      } catch (e) {}
+    });
+  }
+
+  window.dispatchEvent(new CustomEvent('tfd-audio-change', {
+    detail: { volume: currentAudioVolume, muted: effectivelyMuted }
+  }));
+}
 
 const origWindowAddEventListener = window.addEventListener.bind(window);
 const origWindowRemoveEventListener = window.removeEventListener.bind(window);
@@ -37,7 +98,7 @@ const origClearInterval = window.clearInterval.bind(window);
       ctx.__tfdOrigResume = origResume;
 
       ctx.resume = function () {
-        if (!document.body.classList.contains('in-game')) {
+        if (!document.body.classList.contains('in-game') || currentAudioMuted || currentAudioVolume <= 0) {
           return origSuspend().catch(() => {});
         }
         return origResume();
@@ -50,7 +111,7 @@ const origClearInterval = window.clearInterval.bind(window);
           const node = origCreate(...createArgs);
           const origStart = node.start.bind(node);
           node.start = function (...startArgs) {
-            if (!document.body.classList.contains('in-game')) {
+            if (!document.body.classList.contains('in-game') || currentAudioMuted || currentAudioVolume <= 0) {
               origSuspend().catch(() => {});
               return;
             }
@@ -60,7 +121,7 @@ const origClearInterval = window.clearInterval.bind(window);
         };
       });
 
-      if (!document.body.classList.contains('in-game')) {
+      if (!document.body.classList.contains('in-game') || currentAudioMuted || currentAudioVolume <= 0) {
         origSuspend().catch(() => {});
       }
       return ctx;
@@ -77,6 +138,10 @@ const origClearInterval = window.clearInterval.bind(window);
     const origPlay = HTMLMediaElement.prototype.play;
     HTMLMediaElement.prototype.play = function (...args) {
       trackedAudioElements.add(this);
+      try {
+        this.volume = currentAudioVolume;
+        this.muted = currentAudioMuted || currentAudioVolume <= 0;
+      } catch (e) {}
       if (!document.body.classList.contains('in-game')) {
         try { this.pause(); } catch (e) {}
         return Promise.resolve();
@@ -95,7 +160,7 @@ const origClearInterval = window.clearInterval.bind(window);
       }
       const wrappedListener = function (event, ...rest) {
         if (!document.body.classList.contains('in-game')) return;
-        if (event && event.target && typeof event.target.closest === 'function' && event.target.closest('.match-nav-actions, .match-manual-modal')) {
+        if (event && event.target && typeof event.target.closest === 'function' && event.target.closest('.match-toolbar, .match-manual-modal, .match-state-modal')) {
           return;
         }
         return listener.call(this, event, ...rest);
@@ -236,8 +301,14 @@ export function unmountGameClient() {
     try { window.speechSynthesis.cancel(); } catch (e) {}
   }
 
-  // 8. Reset game-configured navbar slots and clear board mount container DOM
-  matchNavbar.reset();
+  // 8. Reset game-configured toolbar slots and clear board mount container DOM
+  matchToolbar.bindAudioBridge({ getAudioState: getGameAudioState, setAudioState: setGameAudioState });
+  matchToolbar.reset();
+  const codeEl = el('matchToolbarCode');
+  if (codeEl) {
+    codeEl.textContent = '';
+    codeEl.classList.add('hidden');
+  }
   if (container) {
     container.innerHTML = '';
   }
@@ -290,6 +361,22 @@ export function enterMatch(matchConfig) {
     viewBoard.classList.remove('hidden');
   }
   console.log(`[Match] Active match loaded: game="${matchConfig.gameName}", matchID="${matchIdStr}", playerID="${matchConfig.playerID}"`);
+
+  const codeEl = el('matchToolbarCode');
+  if (codeEl) {
+    if (matchIdStr) {
+      codeEl.textContent = `#${matchIdStr}`;
+      codeEl.classList.remove('hidden');
+      codeEl.onclick = () => {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(matchIdStr).then(() => showToast(`Copied game code ${matchIdStr}`, 'success')).catch(() => {});
+        }
+      };
+    } else {
+      codeEl.textContent = '';
+      codeEl.classList.add('hidden');
+    }
+  }
 
   // Sync match party & update Play Again button
   syncMatchParty(matchConfig);
@@ -529,34 +616,105 @@ export function mountGameClient(matchConfig) {
   gameStyle.href = `/game_modules/${gameName}/style.css`;
   shadowRoot.appendChild(gameStyle);
 
-  // 4. Create internal mount point for the game client
+  // 4. Create internal mount point for the game client (always scrollable so zoomed boards never clip)
   const mountRoot = document.createElement('div');
   mountRoot.className = 'game-mount-root';
-  mountRoot.style.cssText = 'width: 100%; height: 100%; display: flex; flex-direction: column;';
+  mountRoot.style.cssText = 'width: 100%; height: 100%; overflow: auto; display: flex; flex-direction: column;';
   shadowRoot.appendChild(mountRoot);
 
-  matchNavbar.reset();
+  matchToolbar.bindAudioBridge({ getAudioState: getGameAudioState, setAudioState: setGameAudioState });
+  matchToolbar.reset();
   const catalogId = matchConfig.catalogGameId || matchConfig.gameName;
   const catalogGame = state.games.find((g) => g.id === catalogId || g.id === gameName);
   const userIsAdmin = isUserAdmin(state.currentUser) || Boolean(window.tfdNavbar && isUserAdmin(window.tfdNavbar.currentUser));
   if (catalogGame) {
+    const resolveAsset = (p) => {
+      if (!p || typeof p !== 'string') return p;
+      if (/^(https?:)?\/\//i.test(p) || p.startsWith('/') || p.startsWith('data:')) return p;
+      return `/game_modules/${gameName}/${p.replace(/^\.\//, '')}`;
+    };
+
+    let manifestLogo = { text: matchConfig.gameTitle || catalogGame.name, icon: catalogGame.icon || 'bi-dice-5' };
+    if (typeof catalogGame.logo === 'string') {
+      manifestLogo = { src: resolveAsset(catalogGame.logo), alt: catalogGame.name };
+    } else if (catalogGame.logo && typeof catalogGame.logo === 'object') {
+      manifestLogo = {
+        ...catalogGame.logo,
+        ...(catalogGame.logo.src ? { src: resolveAsset(catalogGame.logo.src) } : {}),
+        alt: catalogGame.logo.alt || catalogGame.name
+      };
+    }
+
+    let manifestManual = null;
+    if (typeof catalogGame.manual === 'string') {
+      manifestManual = { url: resolveAsset(catalogGame.manual), modal: true, title: `${catalogGame.name} Manual` };
+    } else if (catalogGame.manual && typeof catalogGame.manual === 'object') {
+      manifestManual = {
+        ...catalogGame.manual,
+        ...(catalogGame.manual.url ? { url: resolveAsset(catalogGame.manual.url) } : {})
+      };
+    }
+
+    const manifestLinks = Array.isArray(catalogGame.links)
+      ? catalogGame.links.map((link) => ({
+          ...link,
+          ...(link && link.url ? { url: resolveAsset(link.url) } : {})
+        }))
+      : [];
+
     const manifestDevTools = Array.isArray(catalogGame.devTools)
       ? catalogGame.devTools.map((tool) => ({
           label: tool.name || tool.label || 'Tool',
           icon: tool.icon || 'bi-tools',
-          url: tool.url,
+          url: resolveAsset(tool.url),
           title: tool.description || tool.name
         }))
       : [];
-    matchNavbar.configure({
-      logo: { text: matchConfig.gameTitle || catalogGame.name, icon: catalogGame.icon || 'bi-dice-5' },
+
+    let manifestZoom = null;
+    if (catalogGame.zoom !== false && catalogGame.zoom !== null) {
+      const zCfg = (catalogGame.zoom && typeof catalogGame.zoom === 'object') ? catalogGame.zoom : {};
+      const min = zCfg.min !== undefined ? Number(zCfg.min) : 0.5;
+      const max = zCfg.max !== undefined ? Number(zCfg.max) : 2;
+      const step = zCfg.step !== undefined ? Number(zCfg.step) : 0.01;
+      const defaultVal = zCfg.default !== undefined ? Number(zCfg.default) : (zCfg.value !== undefined ? Number(zCfg.value) : 1);
+      const applyDefaultZoom = (val) => {
+        const clamped = Math.min(max, Math.max(min, Number(val) || defaultVal));
+        Array.from(mountRoot.children).forEach((child) => {
+          if (child && child.style) child.style.zoom = String(clamped);
+        });
+        matchToolbar.updateZoom(clamped);
+      };
+      manifestZoom = {
+        min,
+        max,
+        step,
+        value: defaultVal,
+        defaultValue: defaultVal,
+        onChange: applyDefaultZoom,
+        onReset: () => applyDefaultZoom(defaultVal)
+      };
+    }
+
+    matchToolbar.setDefaults({
+      logo: manifestLogo,
+      manual: manifestManual,
+      links: manifestLinks,
+      zoom: manifestZoom,
+      audio: Boolean(catalogGame.audio),
+      language: Boolean(catalogGame.language),
+      saveLoad: Boolean(catalogGame.saveLoad),
+      newGame: Boolean(catalogGame.newGame),
+      onNewGame: () => {
+        if (state.activeMatch) createDirectRematch(state.activeMatch);
+      },
       devTools: manifestDevTools
     });
   }
 
   const enrichedConfig = {
     ...matchConfig,
-    navbar: matchNavbar,
+    toolbar: matchToolbar,
     isAdmin: userIsAdmin
   };
 

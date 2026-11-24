@@ -11,6 +11,27 @@
   "author": "The Flying Dutchmen",
   "tags": ["sandbox", "tabletop"],
   "icon": "bi-grid-1x2-fill",
+  "toolbar": {
+    "logo": {
+      "text": "Tabletop Sandbox",
+      "icon": "bi-grid-1x2-fill"
+    },
+    "manual": {
+      "label": "Controls",
+      "url": "rules.html",
+      "modal": true
+    },
+    "zoom": {
+      "min": 0.2,
+      "max": 2.5,
+      "default": 0.85
+    },
+    "audio": false,
+    "language": false,
+    "saveLoad": false,
+    "newGame": false,
+    "links": []
+  },
   "modes": [
     {
       "id": "standard",

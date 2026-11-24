@@ -162,23 +162,45 @@
 
     <!-- VIEW 3: ACTIVE MATCH / LIVE GAME BOARD -->
     <section id="viewMatchBoard" class="match-board-view hidden">
-      <div class="match-nav-actions" id="matchNavbar">
-        <div class="match-nav-group match-nav-left">
+      <div class="match-toolbar" id="matchToolbar">
+        <div class="match-toolbar-group match-toolbar-left">
           <button class="btn-pill btn-to-lobby" onclick="exitToLobby()" title="To Lobby">
             <i class="bi bi-arrow-left"></i> <span data-i18n="match.toLobby">Lobby</span>
           </button>
           <button class="btn-pill btn-play-again hidden" id="btnPlayAgain" onclick="handlePlayAgain()">
             <i class="bi bi-arrow-repeat"></i> <span id="playAgainLabel" data-i18n="match.playAgain">Play Again</span>
           </button>
-          <div class="match-nav-slot match-nav-zoom hidden" id="matchNavZoom"></div>
+          <button type="button" class="btn-pill match-toolbar-btn hidden" id="matchToolbarNewGame" title="Start a new game">
+            <i class="bi bi-plus-circle"></i> <span>New Game</span>
+          </button>
+          <button type="button" class="btn-pill match-toolbar-code hidden" id="matchToolbarCode" title="Game Code (click to copy)"></button>
+          <div class="match-toolbar-slot match-toolbar-zoom hidden" id="matchToolbarZoom"></div>
         </div>
-        <div class="match-nav-group match-nav-center">
-          <div class="match-nav-slot match-nav-logo hidden" id="matchNavLogo"></div>
+        <div class="match-toolbar-group match-toolbar-center">
+          <div class="match-toolbar-slot match-toolbar-logo hidden" id="matchToolbarLogo"></div>
         </div>
-        <div class="match-nav-group match-nav-right">
-          <div class="match-nav-slot match-nav-links hidden" id="matchNavLinks"></div>
-          <div class="match-nav-slot match-nav-manual hidden" id="matchNavManual"></div>
-          <div class="match-nav-slot match-nav-devtools hidden" id="matchNavDevTools"></div>
+        <div class="match-toolbar-group match-toolbar-right">
+          <div class="match-toolbar-slot match-toolbar-links hidden" id="matchToolbarLinks"></div>
+          <div class="match-toolbar-slot match-toolbar-manual hidden" id="matchToolbarManual"></div>
+          <div class="match-toolbar-slot match-toolbar-audio hidden" id="matchToolbarAudio">
+            <div class="match-toolbar-audio-pill" title="Audio volume & mute">
+              <button type="button" class="match-toolbar-mute-btn" id="matchToolbarMuteBtn" title="Mute / Unmute" aria-label="Mute / Unmute">
+                <i class="bi bi-volume-up-fill" id="matchToolbarMuteIcon"></i>
+              </button>
+              <input type="range" class="match-toolbar-volume-slider" id="matchToolbarVolumeSlider" min="0" max="1" step="0.05" value="1" aria-label="Volume" />
+            </div>
+          </div>
+          <div class="match-toolbar-slot match-toolbar-lang hidden" id="matchToolbarLang">
+            <label class="match-toolbar-lang-pill" title="Language">
+              <i class="bi bi-globe2"></i>
+              <select id="matchToolbarLangSelect" class="match-toolbar-lang-select" aria-label="Language">
+                <option value="en">EN</option>
+                <option value="ja">日本語</option>
+                <option value="es">ES</option>
+              </select>
+            </label>
+          </div>
+          <div class="match-toolbar-slot match-toolbar-devtools hidden" id="matchToolbarDevTools"></div>
         </div>
       </div>
 
@@ -186,14 +208,58 @@
       <div class="modal-overlay match-manual-modal hidden" id="matchManualModal" onclick="if (event.target === this) closeMatchManualModal()">
         <div class="modal-card match-manual-card">
           <div class="modal-header match-manual-header">
-            <a id="matchManualExtLink" class="btn-pill match-nav-btn match-manual-ext-link hidden" href="#" target="_blank" rel="noopener noreferrer" title="Open in new tab" onclick="closeMatchManualModal()">
+            <a id="matchManualExtLink" class="btn-pill match-toolbar-btn match-manual-ext-link hidden" href="#" target="_blank" rel="noopener noreferrer" title="Open in new tab" onclick="closeMatchManualModal()">
               <span>New Tab</span> <i class="bi bi-box-arrow-up-right"></i>
             </a>
-            <button class="btn-pill match-nav-btn match-manual-close-btn" type="button" onclick="closeMatchManualModal()" title="Close">
+            <button class="btn-pill match-toolbar-btn match-manual-close-btn" type="button" onclick="closeMatchManualModal()" title="Close">
               <span>Close</span> <i class="bi bi-x-lg"></i>
             </button>
           </div>
           <div class="match-manual-body" id="matchManualBody"></div>
+        </div>
+      </div>
+
+      <!-- Shared Save / Load Game State Modal -->
+      <div class="modal-overlay match-state-modal hidden" id="matchStateModal" onclick="if (event.target === this) closeMatchStateModal()">
+        <div class="modal-card match-state-card">
+          <div class="modal-header">
+            <h3><i class="bi bi-floppy text-gold"></i> <span>Save / Load Game State</span></h3>
+            <button class="modal-close" type="button" onclick="closeMatchStateModal()">&times;</button>
+          </div>
+          <div class="match-state-body">
+            <div class="match-state-status hidden" id="matchStateStatus"></div>
+            <div class="match-state-row">
+              <button type="button" class="btn-primary match-state-flex-btn" id="matchStateQuickSave">
+                <i class="bi bi-floppy"></i> Quick Save
+              </button>
+              <button type="button" class="btn-gold match-state-flex-btn" id="matchStateQuickLoad">
+                <i class="bi bi-folder2-open"></i> Quick Load
+              </button>
+            </div>
+            <div class="match-state-section">
+              <label for="matchStateNameInput">Save Named Snapshot</label>
+              <div class="match-state-row">
+                <input type="text" id="matchStateNameInput" class="form-control" placeholder="e.g. Round 3 mid-turn" maxlength="60" />
+                <button type="button" class="btn-primary" id="matchStateSaveNamed">Save</button>
+              </div>
+            </div>
+            <div class="match-state-section">
+              <label>Saved Snapshots</label>
+              <div class="match-state-snapshots" id="matchStateSnapshotsList"></div>
+            </div>
+            <div class="match-state-row">
+              <button type="button" class="btn-secondary match-state-flex-btn" id="matchStateCopyJson">
+                <i class="bi bi-clipboard"></i> Copy State JSON
+              </button>
+              <button type="button" class="btn-secondary match-state-flex-btn" id="matchStateToggleImport">
+                <i class="bi bi-upload"></i> Import JSON
+              </button>
+            </div>
+            <div class="match-state-import hidden" id="matchStateImportArea">
+              <textarea id="matchStateImportInput" class="form-control" rows="5" placeholder="Paste exported game state JSON here..."></textarea>
+              <button type="button" class="btn-primary w-100" id="matchStateImportJson">Load Imported JSON</button>
+            </div>
+          </div>
         </div>
       </div>
 

@@ -60,6 +60,9 @@
       <div class="games-grid" id="gamesGrid">
         <!-- Dynamically injected consolidated game cards -->
       </div>
+      <p style="margin: 18px auto 0; text-align: center; font-size: 12px; color: rgba(245, 236, 227, 0.55); max-width: 640px;">
+        <i class="bi bi-info-circle"></i> Inactive matches where all players have disconnected are automatically closed after 2 hours.
+      </p>
     </section>
 
     <!-- VIEW 2: GROUP-FIRST FLOW (PARTY LOUNGE) -->
@@ -228,37 +231,38 @@
           </div>
           <div class="match-state-body">
             <div class="match-state-status hidden" id="matchStateStatus"></div>
-            <div class="match-state-row">
-              <button type="button" class="btn-primary match-state-flex-btn" id="matchStateQuickSave">
-                <i class="bi bi-floppy"></i> Quick Save
-              </button>
-              <button type="button" class="btn-gold match-state-flex-btn" id="matchStateQuickLoad">
-                <i class="bi bi-folder2-open"></i> Quick Load
-              </button>
-            </div>
             <div class="match-state-section">
-              <label for="matchStateNameInput">Save Named Snapshot</label>
+              <label for="matchStateNameInput">Save Current State</label>
               <div class="match-state-row">
-                <input type="text" id="matchStateNameInput" class="form-control" placeholder="e.g. Round 3 mid-turn" maxlength="60" />
-                <button type="button" class="btn-primary" id="matchStateSaveNamed">Save</button>
+                <input type="text" id="matchStateNameInput" class="form-control" placeholder="Name (optional)" maxlength="60" />
+                <button type="button" class="btn-primary" id="matchStateSaveNamed">
+                  <i class="bi bi-floppy"></i> Save
+                </button>
               </div>
             </div>
             <div class="match-state-section">
-              <label>Saved Snapshots</label>
+              <label>Saved States</label>
               <div class="match-state-snapshots" id="matchStateSnapshotsList"></div>
             </div>
-            <div class="match-state-row">
-              <button type="button" class="btn-secondary match-state-flex-btn" id="matchStateCopyJson">
-                <i class="bi bi-clipboard"></i> Copy State JSON
-              </button>
-              <button type="button" class="btn-secondary match-state-flex-btn" id="matchStateToggleImport">
-                <i class="bi bi-upload"></i> Import JSON
-              </button>
+            <div class="match-state-section">
+              <label>Copy / Paste</label>
+              <div class="match-state-row">
+                <button type="button" class="btn-secondary match-state-flex-btn" id="matchStateCopyJson">
+                  <i class="bi bi-clipboard"></i> Copy
+                </button>
+                <button type="button" class="btn-secondary match-state-flex-btn" id="matchStateToggleImport">
+                  <i class="bi bi-clipboard-check"></i> Paste
+                </button>
+              </div>
+              <div class="match-state-import hidden" id="matchStateImportArea">
+                <textarea id="matchStateImportInput" class="form-control" rows="4" placeholder="Paste saved state JSON here..."></textarea>
+                <button type="button" class="btn-primary w-100" id="matchStateImportJson">Load Pasted State</button>
+              </div>
             </div>
-            <div class="match-state-import hidden" id="matchStateImportArea">
-              <textarea id="matchStateImportInput" class="form-control" rows="5" placeholder="Paste exported game state JSON here..."></textarea>
-              <button type="button" class="btn-primary w-100" id="matchStateImportJson">Load Imported JSON</button>
-            </div>
+            <p class="match-state-note">
+              <i class="bi bi-info-circle"></i>
+              Saves are stored in this browser. To prevent cheating, opponents' hidden tiles/cards are omitted from saved states and are redistributed from the remaining pool when loaded.
+            </p>
           </div>
         </div>
       </div>

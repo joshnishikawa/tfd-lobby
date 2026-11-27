@@ -92,6 +92,25 @@ router.get('/api/health', (ctx) => {
 });
 
 // API: Discovered Games Metadata
+// API: KRED server-side bot manager
+let kredBotManager = null;
+try {
+  const { createKredBotManager } = require('./game_modules/KRED/bot-runner.cjs');
+  kredBotManager = createKredBotManager({ db: mysqlAdapter, port });
+  router.post('/api/kred/:matchId/start-bots', async (ctx) => {
+    try {
+      const result = await kredBotManager.startBotsForMatch(ctx.params.matchId);
+      ctx.body = { success: true, ...result };
+    } catch (err) {
+      ctx.status = 400;
+      ctx.body = { error: err.message };
+    }
+  });
+  console.log('[SERVER] KRED server-side bot manager initialized');
+} catch (e) {
+  console.warn('[SERVER] Could not initialize KRED bot manager:', e.message);
+}
+
 // API: GitHub Webhook for KRED auto-update
 try {
   const KredWebhookHandler = require('./game_modules/KRED/scripts/webhook-handler.cjs');
@@ -208,17 +227,19 @@ async function cleanOrphanedMatches() {
       const connectedPlayers = humanPlayers.filter(p => p.isConnected);
       const age = now - (metadata.updatedAt || metadata.createdAt || 0);
 
-      // 1. Matches with 0 human players (empty or bot-only)
-      if (humanPlayers.length === 0) {
+      // 1. Matches with 0 human players (bot-only immediately, or empty > 15s to allow create->join handshake)
+      if (humanPlayers.length === 0 && (namedPlayers.length > 0 || age > 15 * 1000)) {
         console.log(`[CLEANUP] Wiping empty/bot-only match ${matchId} (${metadata.gameName})`);
+        if (kredBotManager) kredBotManager.stopMatchBots(matchId);
         await server.db.wipe(matchId);
         wiped.push(matchId);
         continue;
       }
 
-      // 2. Matches where all players are disconnected (abandoned) and inactive
-      if (connectedPlayers.length === 0 && age > 5 * 60 * 1000) {
+      // 2. Matches where all players are disconnected (abandoned) and inactive for 2 hours
+      if (connectedPlayers.length === 0 && age > 2 * 60 * 60 * 1000) {
         console.log(`[CLEANUP] Wiping abandoned match ${matchId} (${metadata.gameName}, age: ${Math.round(age / 60000)}m)`);
+        if (kredBotManager) kredBotManager.stopMatchBots(matchId);
         await server.db.wipe(matchId);
         wiped.push(matchId);
         continue;
@@ -229,6 +250,7 @@ async function cleanOrphanedMatches() {
         console.log(`[CLEANUP] Wiping completed match ${matchId} (${metadata.gameName})`);
         const { state } = await server.db.fetch(matchId, { state: true });
         await matchRecorder.recordCompletedMatch(matchId, metadata, state);
+        if (kredBotManager) kredBotManager.stopMatchBots(matchId);
         await server.db.wipe(matchId);
         wiped.push(matchId);
         continue;
@@ -263,6 +285,7 @@ router.delete('/api/matches/:matchId', async (ctx) => {
       if (metadata && (metadata.gameover || (state && state.ctx && state.ctx.gameover))) {
         await matchRecorder.recordCompletedMatch(matchId, metadata, state);
       }
+      if (kredBotManager) kredBotManager.stopMatchBots(matchId);
       await server.db.wipe(matchId);
     }
     ctx.body = { success: true, wiped: matchId };
@@ -278,8 +301,18 @@ router.post('/api/matches/cleanup', async (ctx) => {
   ctx.body = { success: true, count: wiped.length, wiped };
 });
 
-// Run cleanup periodically every 3 minutes
+// Run cleanup periodically every 3 minutes, and immediately on leave / open-tables fetch
 setInterval(cleanOrphanedMatches, 3 * 60 * 1000);
+server.app.middleware.unshift(async (ctx, next) => {
+  if (ctx.method === 'GET' && /^\/games\/[^/]+\/?$/.test(ctx.path)) {
+    await cleanOrphanedMatches();
+    return next();
+  }
+  await next();
+  if (ctx.method === 'POST' && /^\/games\/[^/]+\/[^/]+\/leave\/?$/.test(ctx.path)) {
+    await cleanOrphanedMatches();
+  }
+});
 
 // API: Group-First Matchmaking Endpoints
 router.post('/api/groups/create', (ctx) => {
@@ -472,4 +505,8 @@ server.run(port, () => {
   console.log(`🌐 Public domain: https://lobby.theflyingdutchmen.games`);
   console.log(`📦 Active Games Loaded: ${games.map(g => g.name).join(', ')}`);
   console.log(`======================================================`);
+  setTimeout(async () => {
+    await cleanOrphanedMatches();
+    if (kredBotManager) kredBotManager.reattachAllActiveMatches();
+  }, 1500);
 });

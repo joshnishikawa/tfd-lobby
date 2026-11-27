@@ -38,8 +38,11 @@ Do **not** build duplicate top bars for game logos, rulebooks/manuals, zoom slid
   - `toolbar.reset()` — called automatically by `match-manager.js` on unmount.
 - **Shared Save / Load Game State (`saveLoad`):**
   - Pass `saveLoad: { getState, loadState, storageKey? }` to `toolbar.configure(...)` to automatically add **Save / Load State** to the far-right gear menu.
-  - The lobby provides Quick Save/Load, Named Snapshots, and JSON Copy/Import in `#matchStateModal` so games don't need their own Save/Load UI.
+  - The lobby provides browser-saved states, JSON Copy/Paste, and an anti-cheat hidden-state notice in `#matchStateModal` so games don't need their own Save/Load UI.
   - On the server, ensure your `loadSaveState` move sanitizes any `'HIDDEN'` fields (hands, draft packs, pending plays) if your game uses `playerView` filtering.
+- **Shared Arrange Components (`arrange`):**
+  - Pass `arrange: { active, title?, onToggle, spots, selectedKeys, onSelect, groups?, toggles?, onSaveDraft?, onResetDraft?, onCopyJson?, onImportJson?, onNudge?, onRotate?, onSetAngle?, onScale?, onSetScale?, onGroupRotate?, view? }` to `toolbar.configure(...)` to automatically add **Arrange Components** to the admin gear menu and render the lobby's shared floating layout toolbar (`public/js/modules/arrange-tool.js`).
+  - Use `toolbar.updateArrange(nextArrange)` to push live selection/coordinate updates without rebuilding the top toolbar.
 
 ## 3. Scrollable Board / Zoom Rule (Universal)
 - `.game-mount-root` is `overflow: auto`.

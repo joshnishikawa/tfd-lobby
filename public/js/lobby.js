@@ -14,6 +14,7 @@ import { translateDOM, setLanguage, getLanguage } from './modules/i18n.js';
 import {
   loadGamesCatalog,
   selectGameMode,
+  toggleGameOption,
   selectPlayerCount,
   renderGamesCatalog,
   selectGame,
@@ -151,6 +152,7 @@ registerMatchCallbacks({
 window.switchFlow = switchFlow;
 window.handleQuickMatch = handleQuickMatch;
 window.selectGameMode = selectGameMode;
+window.toggleGameOption = toggleGameOption;
 window.selectPlayerCount = selectPlayerCount;
 window.selectGame = selectGame;
 window.refreshTables = refreshTables;

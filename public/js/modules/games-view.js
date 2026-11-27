@@ -11,6 +11,7 @@ import {
   isUserAdmin,
   isSinglePlayerGame,
   getTransportGameId,
+  getSelectedGameOptions,
   buildMatchSetupData,
   matchesCatalogGame
 } from './state.js';
@@ -60,6 +61,23 @@ export function selectGameMode(gameId, modeId) {
 }
 
 /**
+ * Toggle a boolean game option for a game
+ * @param {string} gameId
+ * @param {string} optionId
+ * @param {boolean} checked
+ */
+export function toggleGameOption(gameId, optionId, checked) {
+  if (!state.selectedGameOptions[gameId]) {
+    state.selectedGameOptions[gameId] = getSelectedGameOptions(gameId);
+  }
+  state.selectedGameOptions[gameId][optionId] = Boolean(checked);
+  const optEl = el(`gameOpt_${optionId}_${gameId}`);
+  if (optEl) {
+    optEl.classList.toggle('active', Boolean(checked));
+  }
+}
+
+/**
  * Select player count for a game
  * @param {string} gameId 
  * @param {number} count 
@@ -96,10 +114,28 @@ export function renderGamesCatalog() {
     ` : `<span class="game-players-badge"><i class="bi bi-person"></i> ${playerCounts[0] === 1 ? t('catalog.singlePlayer', { defaultValue: '1 Player' }) : t('catalog.playersCount', { count: playerCounts[0] })}</span>`;
 
     let modes = game.modes || [];
+    const options = Array.isArray(game.options) ? game.options : [];
     const defaultMode = (modes.find(m => m.isDefault) || modes[0] || {}).id || 'normal';
     const selectedMode = state.selectedGameMode[game.id] || defaultMode;
+    const selectedOpts = getSelectedGameOptions(game);
 
-    const modeSelectorHtml = modes.length > 0 ? `
+    const modeSelectorHtml = options.length > 0 ? `
+      <div class="mode-options-grid">
+        ${options.map(opt => {
+          const isChecked = Boolean(selectedOpts[opt.id]);
+          const optTitle = t(`catalog.options.${opt.id}`, { defaultValue: opt.name });
+          return `
+            <label class="mode-option-card ${isChecked ? 'active' : ''}" id="gameOpt_${opt.id}_${game.id}">
+              <div class="mode-radio-row" style="margin-bottom: ${opt.description ? '0.3rem' : '0'};">
+                <input type="checkbox" name="gameOpt_${game.id}_${escapeHtml(opt.id)}" value="${escapeHtml(opt.id)}" ${isChecked ? 'checked' : ''} onchange="toggleGameOption('${game.id}', '${opt.id}', this.checked)">
+                <span class="mode-title">${escapeHtml(optTitle)}</span>
+              </div>
+              ${opt.description ? `<p class="mode-desc">${escapeHtml(opt.description)}</p>` : ''}
+            </label>
+          `;
+        }).join('')}
+      </div>
+    ` : modes.length > 0 ? `
       <div class="mode-options-grid">
         ${modes.map(mode => {
           const modeTitle = t(`catalog.modes.${mode.id}`, { defaultValue: mode.name });
@@ -233,14 +269,19 @@ export async function handleQuickMatch(targetGameId) {
   if (!playerName) return;
 
   const modes = game.modes || [];
+  const options = Array.isArray(game.options) ? game.options : [];
   const defaultMode = (modes.find(m => m.isDefault) || modes[0] || {}).id || 'normal';
   const selectedMode = (state.selectedGameMode && state.selectedGameMode[game.id]) || defaultMode;
+  const selectedOptions = getSelectedGameOptions(game);
 
   const selectElem = el(`playerCountSelect_${game.id}`);
   const numPlayers = selectElem ? parseInt(selectElem.value, 10) : (state.selectedPlayerCount && state.selectedPlayerCount[game.id]) || (game.playerCounts ? game.playerCounts[0] : (game.minPlayers || 2));
 
   const modeObj = modes.find(m => m.id === selectedMode);
-  const modeLabel = modeObj ? modeObj.name : selectedMode;
+  const activeOptionLabels = options.filter(o => selectedOptions[o.id]).map(o => o.name.split(' (')[0]);
+  const modeLabel = options.length > 0
+    ? (activeOptionLabels.length > 0 ? activeOptionLabels.join(', ') : 'Standard')
+    : (modeObj ? modeObj.name : selectedMode);
 
   // 1. If player already has an active match for this game, resume it directly!
   let activeMatch = state.activeMatch;
@@ -270,20 +311,25 @@ export async function handleQuickMatch(targetGameId) {
   }
 
   const transportGameId = getTransportGameId(game);
-  const setupData = buildMatchSetupData(game, selectedMode);
+  const setupData = buildMatchSetupData(game, selectedMode, selectedOptions);
 
   try {
     const res = await fetch(`/games/${transportGameId}`);
     const data = await res.json();
     const matches = data.matches || [];
 
-    // Find match with open seat that matches chosen options (mode, player count, publishedSandboxId)
+    // Find match with open seat that matches chosen options (mode/options, player count, publishedSandboxId)
     for (const m of matches) {
       if (m.gameover) continue;
       if (!matchesCatalogGame(m, game)) continue;
 
       const matchMode = (m.setupData && m.setupData.mode) || 'normal';
-      if (matchMode !== selectedMode) continue;
+      if (options.length > 0) {
+        const sameOptions = options.every(o => Boolean(m.setupData && m.setupData[o.id]) === Boolean(selectedOptions[o.id]));
+        if (!sameOptions) continue;
+      } else if (matchMode !== selectedMode) {
+        continue;
+      }
 
       const totalSeats = (m.players || []).length;
       if (totalSeats !== numPlayers) continue;

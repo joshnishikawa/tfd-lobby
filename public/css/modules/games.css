@@ -149,11 +149,13 @@
   margin-bottom: 0.3rem;
 }
 
-.mode-radio-row input[type="radio"] {
+.mode-radio-row input[type="radio"],
+.mode-radio-row input[type="checkbox"] {
   accent-color: var(--gold-primary);
   width: 16px;
   height: 16px;
   cursor: pointer;
+  flex-shrink: 0;
 }
 
 .mode-title {

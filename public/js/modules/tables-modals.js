@@ -83,9 +83,17 @@ export async function refreshTables(targetGameId) {
       list.innerHTML = openMatches.map(m => {
         const mode = (m.setupData && m.setupData.mode) || '';
         const game = state.games.find(g => g.id === gameId);
-        const modeObj = game && game.modes ? game.modes.find(md => md.id === mode) : null;
-        const modeLabel = modeObj ? t(`catalog.modes.${modeObj.id}`, { defaultValue: modeObj.name }) : (mode ? (mode.charAt(0).toUpperCase() + mode.slice(1)) : '');
-        const modeBadgeHtml = modeLabel ? `<span class="table-mode-badge ${escapeHtml(mode)}">${escapeHtml(modeLabel)}</span>` : '';
+        let modeBadgeHtml = '';
+        if (game && Array.isArray(game.options) && game.options.length > 0) {
+          const enabledOpts = game.options.filter(o => m.setupData && m.setupData[o.id]);
+          modeBadgeHtml = enabledOpts.length > 0
+            ? enabledOpts.map(o => `<span class="table-mode-badge ${escapeHtml(o.id)}">${escapeHtml(o.name.split(' (')[0])}</span>`).join('')
+            : `<span class="table-mode-badge standard">Standard</span>`;
+        } else {
+          const modeObj = game && game.modes ? game.modes.find(md => md.id === mode) : null;
+          const modeLabel = modeObj ? t(`catalog.modes.${modeObj.id}`, { defaultValue: modeObj.name }) : (mode ? (mode.charAt(0).toUpperCase() + mode.slice(1)) : '');
+          modeBadgeHtml = modeLabel ? `<span class="table-mode-badge ${escapeHtml(mode)}">${escapeHtml(modeLabel)}</span>` : '';
+        }
         const joinedCount = (m.players || []).filter(p => p && p.name).length;
         const totalSeats = (m.players || []).length;
         

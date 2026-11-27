@@ -11,6 +11,7 @@
 
 import { state, el, escapeHtml, isUserAdmin } from './state.js';
 import { getLanguage, setLanguage } from './i18n.js';
+import { renderArrangePanel, resetArrangePanel } from './arrange-tool.js';
 
 let defaultConfig = {};
 let currentConfig = {};
@@ -18,6 +19,7 @@ let zoomInputEl = null;
 let zoomLabelEl = null;
 let zoomHandlers = null;
 let activeSaveLoad = null;
+let activeArrange = null;
 let audioBridge = null;
 let lastNonZeroVolume = 1;
 let devMenuOpen = false;
@@ -187,6 +189,7 @@ function renderSnapshotsList() {
         </div>
         <div class="match-state-snap-actions">
           <button type="button" class="btn-pill match-toolbar-btn" data-action="load" data-snap-id="${escapeHtml(snap.id)}">Load</button>
+          <button type="button" class="btn-pill match-toolbar-btn" data-action="copy" data-snap-id="${escapeHtml(snap.id)}" title="Copy JSON"><i class="bi bi-clipboard"></i></button>
           <button type="button" class="btn-pill btn-abandon-match" data-action="delete" data-snap-id="${escapeHtml(snap.id)}" title="Delete"><i class="bi bi-trash"></i></button>
         </div>
       </div>
@@ -204,6 +207,20 @@ function renderSnapshotsList() {
         setTimeout(() => closeSaveLoadModal(), 500);
       } catch (err) {
         setSaveLoadStatus(`Load failed: ${err.message}`, true);
+      }
+    };
+  });
+
+  listEl.querySelectorAll('button[data-action="copy"]').forEach((btn) => {
+    btn.onclick = () => {
+      const id = btn.getAttribute('data-snap-id');
+      const snap = readSnapshots().find((s) => String(s.id) === String(id));
+      if (!snap) return;
+      try {
+        navigator.clipboard.writeText(JSON.stringify(snap, null, 2));
+        setSaveLoadStatus(`Copied "${snap.name}" to clipboard.`);
+      } catch (err) {
+        setSaveLoadStatus(`Copy failed: ${err.message}`, true);
       }
     };
   });
@@ -227,8 +244,6 @@ function wireSaveLoadModalControls() {
   if (!modal || modal.dataset.wired) return;
   modal.dataset.wired = '1';
 
-  const btnQuickSave = el('matchStateQuickSave');
-  const btnQuickLoad = el('matchStateQuickLoad');
   const btnSaveNamed = el('matchStateSaveNamed');
   const nameInput = el('matchStateNameInput');
   const btnCopyJson = el('matchStateCopyJson');
@@ -237,41 +252,8 @@ function wireSaveLoadModalControls() {
   const importInput = el('matchStateImportInput');
   const btnImportJson = el('matchStateImportJson');
 
-  if (btnQuickSave) {
-    btnQuickSave.onclick = () => {
-      try {
-        const snap = buildSnapshot('Quick Save');
-        localStorage.setItem(`${getStoragePrefix()}_quick_save`, JSON.stringify(snap));
-        setSaveLoadStatus('Quick Save created.');
-      } catch (err) {
-        setSaveLoadStatus(`Quick Save failed: ${err.message}`, true);
-      }
-    };
-  }
-
-  if (btnQuickLoad) {
-    btnQuickLoad.onclick = () => {
-      try {
-        const raw = localStorage.getItem(`${getStoragePrefix()}_quick_save`);
-        if (!raw) {
-          setSaveLoadStatus('No Quick Save found.', true);
-          return;
-        }
-        applySnapshot(JSON.parse(raw));
-        setSaveLoadStatus('Quick Save loaded.');
-        setTimeout(() => closeSaveLoadModal(), 500);
-      } catch (err) {
-        setSaveLoadStatus(`Quick Load failed: ${err.message}`, true);
-      }
-    };
-  }
-
   const doSaveNamed = () => {
     const label = nameInput ? nameInput.value.trim() : '';
-    if (!label) {
-      setSaveLoadStatus('Enter a snapshot name first.', true);
-      return;
-    }
     try {
       const snap = buildSnapshot(label);
       const updated = [snap, ...readSnapshots()];
@@ -296,7 +278,7 @@ function wireSaveLoadModalControls() {
       try {
         const snap = buildSnapshot('Exported State');
         navigator.clipboard.writeText(JSON.stringify(snap, null, 2));
-        setSaveLoadStatus('Game state JSON copied to clipboard.');
+        setSaveLoadStatus('Current state copied to clipboard.');
       } catch (err) {
         setSaveLoadStatus(`Copy failed: ${err.message}`, true);
       }
@@ -305,7 +287,9 @@ function wireSaveLoadModalControls() {
 
   if (btnToggleImport && importArea) {
     btnToggleImport.onclick = () => {
+      const opening = importArea.classList.contains('hidden');
       importArea.classList.toggle('hidden');
+      if (opening && importInput) importInput.focus();
     };
   }
 
@@ -579,7 +563,15 @@ function renderDevTools(devTools, options = {}) {
   const baseItems = Array.isArray(devTools) ? devTools.filter(Boolean) : [];
   const items = [...baseItems];
 
-  // Auto-inject shared Save / Load State entry when game provides saveLoad handlers
+  // Auto-inject shared Save / Load State & Arrange Components entries
+  if (activeArrange && typeof activeArrange.onToggle === 'function') {
+    items.unshift({
+      label: activeArrange.active ? 'Exit Arrange' : (activeArrange.menuLabel || 'Arrange Components'),
+      icon: 'bi-crosshair',
+      active: Boolean(activeArrange.active),
+      onClick: () => activeArrange.onToggle()
+    });
+  }
   if (activeSaveLoad && typeof activeSaveLoad.getState === 'function' && typeof activeSaveLoad.loadState === 'function') {
     items.unshift({
       label: activeSaveLoad.label || 'Save / Load State',
@@ -810,12 +802,23 @@ export const matchToolbar = {
     activeSaveLoad = saveLoadAllowed && currentConfig.saveLoad && typeof currentConfig.saveLoad === 'object'
       ? currentConfig.saveLoad
       : null;
+    const arrangeAllowed = opts.arrange !== false && opts.arrange !== null;
+    activeArrange = arrangeAllowed && currentConfig.arrange && typeof currentConfig.arrange === 'object'
+      ? currentConfig.arrange
+      : null;
     renderLogo(currentConfig.logo);
     renderManual(currentConfig.manual);
     renderLinks(currentConfig.links);
     renderZoom(currentConfig.zoom);
     renderUtilitySlots(currentConfig);
     renderDevTools(currentConfig.devTools, currentConfig);
+    renderArrangePanel(activeArrange);
+  },
+
+  /** Update the shared Arrange Components panel without rebuilding the top toolbar */
+  updateArrange(arrangeCfg) {
+    activeArrange = arrangeCfg && typeof arrangeCfg === 'object' ? arrangeCfg : null;
+    renderArrangePanel(activeArrange);
   },
 
   /** Alias for configure() */
@@ -857,9 +860,11 @@ export const matchToolbar = {
     zoomLabelEl = null;
     zoomHandlers = null;
     activeSaveLoad = null;
+    activeArrange = null;
     closeDevMenu();
     closeManualModal();
     closeSaveLoadModal();
+    resetArrangePanel();
     ['matchToolbarLogo', 'matchToolbarManual', 'matchToolbarLinks', 'matchToolbarZoom', 'matchToolbarDevTools'].forEach((id) => {
       const slot = el(id);
       if (slot) {

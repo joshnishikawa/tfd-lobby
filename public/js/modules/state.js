@@ -7,6 +7,7 @@ export const state = {
   games: [],
   selectedGameId: null,
   selectedGameMode: {},
+  selectedGameOptions: {},
   selectedPlayerCount: {},
   activeFlow: 'game', // 'game' | 'group'
   currentParty: null, // party object when in Group-First flow
@@ -180,14 +181,33 @@ export function getTransportGameId(gameOrId) {
 }
 
 /**
+ * Resolve current boolean options map for a game (defaults from game.options).
+ * @param {object | string | null} gameOrId
+ * @returns {object}
+ */
+export function getSelectedGameOptions(gameOrId) {
+  const game = typeof gameOrId === 'string' ? state.games.find((g) => g.id === gameOrId) : gameOrId;
+  const opts = (game && Array.isArray(game.options)) ? game.options : [];
+  if (opts.length === 0) return {};
+  const saved = (state.selectedGameOptions && state.selectedGameOptions[game.id]) || {};
+  const result = {};
+  opts.forEach((opt) => {
+    result[opt.id] = opt.id in saved ? Boolean(saved[opt.id]) : Boolean(opt.default);
+  });
+  return result;
+}
+
+/**
  * Build boardgame.io `setupData` preserving `publishedSandboxId` for published sandboxes.
  * @param {object | string | null} gameOrId
  * @param {string} [mode]
+ * @param {object | null} [options]
  * @returns {object}
  */
-export function buildMatchSetupData(gameOrId, mode = 'normal') {
+export function buildMatchSetupData(gameOrId, mode = 'normal', options = null) {
   const game = typeof gameOrId === 'string' ? state.games.find((g) => g.id === gameOrId) : gameOrId;
-  const setupData = { mode: mode || 'normal' };
+  const hasOptions = game && Array.isArray(game.options) && game.options.length > 0;
+  const setupData = hasOptions ? { ...(options || getSelectedGameOptions(game)) } : { mode: mode || 'normal' };
   if (game && game.publishedSandboxId) {
     setupData.publishedSandboxId = Number(game.publishedSandboxId);
   } else if (typeof gameOrId === 'string') {

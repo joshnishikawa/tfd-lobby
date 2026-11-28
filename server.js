@@ -24,6 +24,26 @@ const { games, metadata: gamesMetadata } = gameLoader.loadAll();
 const groupManager = new GroupManager();
 const mysqlAdapter = new MySQLAdapter();
 const matchRecorder = new MatchRecorder();
+
+// Record completed matches into match_history immediately when gameover is reached
+const origSetState = mysqlAdapter.setState.bind(mysqlAdapter);
+mysqlAdapter.setState = async (matchID, state, deltalog) => {
+  await origSetState(matchID, state, deltalog);
+  if (state && state.ctx && state.ctx.gameover) {
+    try {
+      const { metadata } = await mysqlAdapter.fetch(matchID, { metadata: true });
+      if (metadata) {
+        await matchRecorder.recordCompletedMatch(
+          matchID,
+          { ...metadata, gameover: state.ctx.gameover, updatedAt: Date.now() },
+          state
+        );
+      }
+    } catch (err) {
+      console.error(`[MATCH RECORDER] Auto-record failed for ${matchID}:`, err.message);
+    }
+  }
+};
 const INTERNAL_LOOPBACK_TOKEN = crypto.randomBytes(24).toString('hex');
 const sandboxStoreReady = publishedSandboxStore.loadAll().catch((err) => {
   console.error('[PUBLISHED-SANDBOX] Initial load error:', err.message);

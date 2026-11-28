@@ -29,7 +29,7 @@ const matchRecorder = new MatchRecorder();
 const origSetState = mysqlAdapter.setState.bind(mysqlAdapter);
 mysqlAdapter.setState = async (matchID, state, deltalog) => {
   await origSetState(matchID, state, deltalog);
-  if (state && state.ctx && state.ctx.gameover) {
+  if (matchRecorder.enabled && state && state.ctx && state.ctx.gameover) {
     try {
       const { metadata } = await mysqlAdapter.fetch(matchID, { metadata: true });
       if (metadata) {
